@@ -1,5 +1,5 @@
 #include "KdTree.h"
-
+using namespace std;
 gs::Point::Point()
 {
 	this->pos[0] = 0.0;
@@ -155,7 +155,7 @@ void gs::KdTree::radiusSearch(Point* p, float* radius, Point* result)
 	}
 	else
 	{
-		if (abs(__node->pos[__sortOn] - p->pos[__sortOn]) < *radius)
+		if (std::abs(__node->pos[__sortOn] - p->pos[__sortOn]) < *radius)
 		{
 			__children[0]->radiusSearch(p, radius, result);
 			__children[1]->radiusSearch(p, radius, result);

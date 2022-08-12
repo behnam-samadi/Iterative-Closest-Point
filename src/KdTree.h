@@ -2,7 +2,12 @@
 
 #include <stdio.h>
 #include <vector>
+//#include <cmat.h>
+//#include <math.h>
+//#include <cmath>
+#include <cmath> 
 
+using namespace std;
 #define SORT_ON_X 0
 #define SORT_ON_Y 1
 #define SORT_ON_Z 2
