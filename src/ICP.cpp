@@ -1,5 +1,7 @@
 #include "ICP.h"
-
+#include <iostream>
+#include <omp.h>
+using namespace std;
 void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &staticPointCloud)
 {
 	float rotationMatrix[9];
@@ -56,9 +58,12 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	vSvd[0] = new float[3];
 	vSvd[1] = new float[3];
 	vSvd[2] = new float[3];
-
+	int num_iterations = 0;
+	double kd_tree_search_time;
+	double sum_kd_search_time = 0;
 	for (int iter = 0; iter < maxIterations && abs(cost) > eps; iter++)
 	{
+		num_iterations++;
 		cost = 0.0;
 		
 		//clearRotation(rotationMatrix);
@@ -74,7 +79,10 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			p = *dynamicPointCloud[randSample];
 
 			// get the closest point in the static point cloud
+			kd_tree_search_time = -omp_get_wtime();
 			tree->search(&p, &x);
+			kd_tree_search_time += omp_get_wtime();
+			sum_kd_search_time += kd_tree_search_time;
 
 			qd = p - dynamicMid;
 			qs = x - staticMid;
@@ -84,6 +92,8 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 			cost += error(&x, &p, rotationMatrix, translation);
 		}
+		
+
 
 		copyMatToUV(U, uSvd);
 		dsvd(uSvd, 3, 3, sigma, vSvd);
@@ -106,6 +116,10 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			translate(&p, translation, dynamicPointCloud[i]);
 		}
 	}
+	cout<<endl<<"sum_kd_search_time"<<sum_kd_search_time<<endl;
+
+	cout<<endl<<num_iterations<<" maxIterations ";
+	
 
 	staticPointCloudCopy.clear();
 	delete tree;

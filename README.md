@@ -22,7 +22,7 @@ void icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &staticPoin
 ## Install
 
 build the following located in /src :
-command: g++ main.cpp ICP.cpp ICP.h KdTree.cpp KdTree.h svd.cpp svd.h defs_and_types.h -std=c++11  -o test
++ command: g++ main.cpp ICP.cpp ICP.h KdTree.cpp KdTree.h svd.cpp svd.h defs_and_types.h -std=c++11  -o test
 
 
 + ICP.cpp
