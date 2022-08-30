@@ -33,10 +33,22 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	clearRotation(rotationMatrix);
 
 	const int maxIterations = 400;
+	//const int numRandomSamples = dynamicPointCloud.size();
 	const int numRandomSamples = 400;
 	const float eps = 1e-8;
 	gs::Point p;
 	gs::Point x;
+
+	vector<int> random_indices;
+	int randSample;
+
+	for (int i = 0; i < numRandomSamples; i++)
+		{
+			randSample = std::rand() % dynamicPointCloud.size();
+			random_indices.push_back(randSample);
+			//cout<<"index: " <<random_indices[random_indices.size()-1]<<endl;
+		}
+
 
 	float cost = 1.0;
 	std::srand(std::time(0));

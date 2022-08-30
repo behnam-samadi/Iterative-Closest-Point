@@ -6,6 +6,8 @@ using namespace gs;
 using namespace std;
 #define point_dim 3
 
+
+float total_error = 0;
 /*
 Create a test box of points.
 */
@@ -42,7 +44,7 @@ public:
             counter++;
             if ((counter%100) == 0)
             {
-                cout<<counter<<endl;
+                //cout<<counter<<endl;
             }
             //cout<<stof(a1)<<" has been read"<<endl ;
             data.push_back(vector<float>(point_dim));       
@@ -116,29 +118,29 @@ void icpExample(Frame *reference, Frame* query)
 	float translation[] = { -0.75f, 0.5f, -0.5f };
 	applyAffineTransform(dynamicPointCloud, rotation, translation);
 
-	printf("Static point Cloud: \n");
+	/*printf("Static point Cloud: \n");
 	for (int i = 0; i < staticPointCloud.size(); i++)
 	{
 		printf("%0.2f, %0.2f, %0.2f \n", staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
 	}
-	printf("\n");
+	printf("\n");*/
 
-	printf("Dynamic point Cloud: \n");
+	/*printf("Dynamic point Cloud: \n");
 	for (int i = 0; i < dynamicPointCloud.size(); i++)
 	{
 		printf("%0.2f, %0.2f, %0.2f \n", dynamicPointCloud[i]->pos[0], dynamicPointCloud[i]->pos[1], dynamicPointCloud[i]->pos[2]);
 	}
-	printf("\n");
+	printf("\n");*/
 
 	//use iterative closest point to transform the dynamic point cloud to best align the static point cloud.
 	icp(dynamicPointCloud, staticPointCloud);
 
-	printf("Dynamic point Cloud Transformed: \n");
+	/*printf("Dynamic point Cloud Transformed: \n");
 	for (int i = 0; i < dynamicPointCloud.size(); i++)
 	{
 		printf("%0.2f, %0.2f, %0.2f \n", dynamicPointCloud[i]->pos[0], dynamicPointCloud[i]->pos[1], dynamicPointCloud[i]->pos[2]);
 	}
-	printf("\n");
+	printf("\n");*/
 
 	float alignmentError = 0.0f;
 	for (int i = 0; i < dynamicPointCloud.size(); i++)
@@ -149,6 +151,7 @@ void icpExample(Frame *reference, Frame* query)
 	}
 
 	alignmentError /= (float)dynamicPointCloud.size();
+	total_error += alignmentError;
 
 	printf("Alignment Error: %0.5f \n", alignmentError);
 }
@@ -160,7 +163,14 @@ int main()
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();
 	double whole_time = -omp_get_wtime();
+	int num_tests = 20;
+	for (int i = 0 ;i< num_tests; i++)
+	{
+		cout<<"test number "<<i<<endl;
 	icpExample(&reference , &query);
+	}
+	total_error /= num_tests;
+	cout<<"total_error"<<total_error<<endl;
 	whole_time += omp_get_wtime();
 	cout<<endl<<"whole_time: "<<whole_time<<endl;
 	system("pause");
