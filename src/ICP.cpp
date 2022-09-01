@@ -202,93 +202,133 @@ int binary_search (double ** reference, double query, int begin, int end)
         }
 }
 
-void exact_knn_projected(vector<vector<int>>* output,const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points)
+int exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points)
 {
-    
-    int start_knn = nearest_index;
-    int end_knn = nearest_index;
-    while((end_knn - start_knn + 1) < K)
+    double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
+    int NN_index = nearest_index;
+    double dist;
+    bool right_progress = true;
+    bool left_progress = true;
+    bool bidirectional_cont = true;
+    int right_candidate = nearest_index + 1;
+    int left_candidate = nearest_index - 1;
+    int next;
+    bool search_cont = true;
+    if (left_candidate == -1)
     {
-        if (start_knn ==0)    
+        left_candidate++;
+        bidirectional_cont = false;
+        left_progress = false;
+    }
+    if (right_candidate == num_ref_points)
+    {
+        right_candidate--;
+        bidirectional_cont = false;
+        right_progress = false;
+    }
+    if (abs(reference->data[right_candidate][point_dim] - query_projected) <abs(reference->data[left_candidate][point_dim] - query_projected))
+            next = right_candidate;
+    else
+        next = left_candidate;
+    while(search_cont)
+    {
+        //cout<<"********* "<<next<<" *********";
+        dist = calc_distance(reference->data[next], query, Euclidean);
+        if (dist < NN_dist)
         {
-            end_knn += (K - (end_knn - start_knn + 1));
-            break;
+        	NN_index = next;
+        	NN_dist = dist;
         }
-        if (end_knn == num_ref_points-1)
+        if (abs( reference->data[next][point_dim] - query_projected ) > (sqrt(3)*NN_dist)  )
+            search_cont = false;
+        //note1
+        if (left_progress && right_progress)
         {
-            start_knn -= (K - (end_knn - start_knn + 1));
-            break;
+            //right_candidate++;
+            //left_candidate--;
+                        if (left_candidate == -1)
+            {
+                left_candidate++;
+                bidirectional_cont = false;
+                left_progress = false;
+            }
+            if (right_candidate == num_ref_points)
+            {
+                right_candidate--;
+                bidirectional_cont = false;
+                right_progress = false;
+            }
+             if (abs(reference->data[right_candidate][point_dim] - query_projected) <abs(reference->data[left_candidate][point_dim] - query_projected))
+            {next = right_candidate;
+                right_candidate++;
+            }
+            else
+            {
+            next = left_candidate;
+            left_candidate--;
         }
-        if ((abs((reference->data)[start_knn-1][point_dim]-query_projected)) < (abs((reference->data)[end_knn+1][point_dim]-query_projected)))
-        {
-            start_knn--;
         }
         else
         {
-            end_knn++;
+        if (!left_progress)
+        {
+            right_candidate++;
+            next = right_candidate;
         }
+        if (!right_progress)
+        {
+            left_candidate--;
+            next = left_candidate;
+        }
+    }
     }
 
-    double max_dist = calc_distance(reference->data[start_knn], query, Euclidean);	
-    double dist;
-    int calculated_distances_num = 0;
-    priority_queue<pair<double, int>> knn;
-    for(int c = start_knn; c<= end_knn; c++)
-    {
-        dist = calc_distance(reference->data[c], query, Euclidean);
-        calculated_distances_num ++;
-        knn.push(make_pair(dist, c));
-        if (dist > max_dist)
-        {
-            max_dist = dist;
-        }
-    }
-    int right_arrow = end_knn+1;
-    int left_arrow = start_knn-1;
-    max_dist = knn.top().first;
+    return NN_index;
+}
+
+/*int exact_knn_projected_(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points)
+{
+    
+    double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
+    int NN_index = nearest_index;
+    double max_dist = dist;
+    
     
     if (right_arrow<num_ref_points)
-        {
+    {
     while( abs( reference->data[right_arrow][point_dim] - query_projected ) <= (sqrt(3)*max_dist)    )
     {
         dist = calc_distance(reference->data[right_arrow], query, Euclidean);
-        calculated_distances_num++;
         if (dist < max_dist)
         {
-            knn.pop();
-            knn.push(make_pair(dist, right_arrow));
-            max_dist = knn.top().first;
+        	NN_index = right_arrow;
+        	NN_dist = dist;
+        	max_dist = dist;
         }
         right_arrow++;
         if (right_arrow == num_ref_points)
             break;
-    }
-}
+    	}
+	}
 if (left_arrow>0)
 {
         while(abs(reference->data[left_arrow][point_dim] - query_projected) <= (sqrt(3)*max_dist))
     {
         dist = calc_distance(reference->data[left_arrow], query, Euclidean);
-        calculated_distances_num++;
         if (dist < max_dist)
         {
-            
-            knn.pop();
-            knn.push(make_pair(dist, left_arrow));
-            max_dist = knn.top().first;
+        	NN_index = left_arrow;
+        	NN_dist = dist;
+        	max_dist = dist;
         }
         left_arrow--;
         if (left_arrow<0) break;
     }
 }
-int c = 0;
-    while(knn.size())
-    {
-        (*output)[row][c++] = knn.top().second;
-        knn.pop();
-    }
-}
+	int c = 0;
 
+}
+*/
 
 
 
@@ -318,7 +358,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	{
 		for (int j =0 ; j < point_dim+1; j++)
 		{
-			cout<<endl<<"i: "<<i<<" j: "<<j<<" "<<reference.data[i][j]<<endl;
+			//cout<<endl<<"i: "<<i<<" j: "<<j<<" "<<reference.data[i][j]<<endl;
 		}
 	}
 	size_t numDynamicPoints = dynamicPointCloud.size();
@@ -333,8 +373,8 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	clearRotation(rotationMatrix);
 
 	const int maxIterations = 15;
-	//const int numRandomSamples = dynamicPointCloud.size();
-	const int numRandomSamples = 400;
+	const int numRandomSamples = dynamicPointCloud.size();
+	//const int numRandomSamples = 400;
 	const float eps = 1e-8;
 	gs::Point p;
 	gs::Point x;
@@ -405,20 +445,20 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			double proposed_time = -omp_get_wtime();
 			int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
 			//cout<<i<<" "<<"binary search done "<<nearest_index<<endl;
-        	exact_knn_projected(&result_test,&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points);
+        	int result_NN = exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points);
         	//cout<<endl<<result_test.size()<<" and: ";
         	//cout<<result_test[0].size()<<endl;
         	//cout<<endl<<"result_test[0][0]: "<<result_test[0][0]<<endl;
         	//cout<<" X: "<<reference.data[result_test[0][0]][0]<<" Y: "<<reference.data[result_test[0][0]][1]<<" Z: "<<reference.data[result_test[0][0]][2]<<endl;
         	proposed_time += omp_get_wtime();
         	kd_tree_search_time = -omp_get_wtime();
-			tree->search(&p, &x);
+			//tree->search(&p, &x);
 			//cout<<" X: "<<x.pos[0]<<" Y: "<<x.pos[1]<<" Z: "<<x.pos[2]<<endl;
-			x.pos[0] = reference.data[result_test[0][0]][0];
-			x.pos[1] = reference.data[result_test[0][0]][1];
-			x.pos[2] = reference.data[result_test[0][0]][2];
+			x.pos[0] = reference.data[result_NN][0];
+			x.pos[1] = reference.data[result_NN][1];
+			x.pos[2] = reference.data[result_NN][2];
 			kd_tree_search_time += omp_get_wtime();
-			cout<<endl<<"proposed_time: "<<sum_proposed_time<<" and kd_tree_search_time: " <<sum_kd_search_time<<endl;
+			//cout<<endl<<"proposed_time: "<<sum_proposed_time<<" and kd_tree_search_time: " <<sum_kd_search_time<<endl;
 			sum_kd_search_time += kd_tree_search_time;
 			sum_proposed_time += proposed_time;
 

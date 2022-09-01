@@ -163,7 +163,7 @@ int main()
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();
 	double whole_time = -omp_get_wtime();
-	int num_tests = 1;
+	int num_tests = 10;
 	for (int i = 0 ;i< num_tests; i++)
 	{
 		cout<<"test number "<<i<<endl;
