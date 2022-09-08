@@ -17,6 +17,7 @@ int index_to_ckeck = 1237;
 using namespace std;
 using namespace gs;
 int num_calcs;
+bool use_proposed;
 enum dist_metric
 {
     Modified_Manhattan,
@@ -391,7 +392,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 	const int maxIterations = 20;
 	//const int numRandomSamples = dynamicPointCloud.size();
-	//const int numRandomSamples = 400;
+	const int numRandomSamples = 400;
 	const float eps = 1e-8;
 	gs::Point p;
 	gs::Point x;
@@ -453,21 +454,45 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	double itrative_threshold;
 	double prev_NN_projected;
 	double p_projected;
+	use_proposed = true;
 	for (int iter = 0; iter < maxIterations && abs(cost) > eps; iter++)
 	{
 		iter_time = -omp_get_wtime();
 		sum_calcs = 0;
-
 		num_iterations++;
 		cost = 0.0;
-		
 		//clearRotation(rotationMatrix);
 		clearMatrix(U);
 		clearMatrix(V);
 		clearMatrix(w);
 		computeCloudMean(dynamicPointCloud, &dynamicMid);
 		int nearest_index = 0;
+		if (!use_proposed)
+		{
+			for (int i = 0; i < numRandomSamples; i++)
+		{
+			int randSample = std::rand() % dynamicPointCloud.size();
+			// sample the dynamic point cloud
+			p = *dynamicPointCloud[randSample];
 
+			// get the closest point in the static point cloud
+			kd_tree_search_time = -omp_get_wtime();
+			tree->search(&p, &x);
+			kd_tree_search_time += omp_get_wtime();
+			sum_kd_search_time += kd_tree_search_time;
+
+			qd = p - dynamicMid;
+			qs = x - staticMid;
+
+			outerProduct(&qs, &qd, w);
+			addMatrix(w, U, U);
+
+			cost += error(&x, &p, rotationMatrix, translation);
+		}
+
+		}
+		else
+		{
 		for (int i = 0; i < point_cloud_size; i++)
 		{
 			//cout<<endl<<"processing point "<<i<<"in iteration: "<<iter<<endl;
@@ -553,6 +578,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			addMatrix(w, U, U);
 			cost += error(&x, &p, rotationMatrix, translation);
 		}
+	}
 		
 
 
@@ -598,7 +624,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 		cout<<endl<<"in iteration "<<iter<<" cost: "<<cost<<endl;
 	}
 
-	cout<<endl<<"sum_kd_search_time"<<sum_kd_search_time<<endl;
+	//cout<<endl<<"sum_kd_search_time"<<sum_kd_search_time<<endl;
 
 	cout<<endl<<num_iterations<<" maxIterations ";
 	
