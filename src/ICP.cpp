@@ -54,7 +54,7 @@ double calc_distance (double *v1, vector<double>v2, dist_metric type)
         if (type == Euclidean)
             result = sqrt(result);
         //cout<<result;
-        //exit(0);
+        
         return(result);
         }
 }
@@ -209,10 +209,16 @@ int binary_search (double ** reference, double query, int begin, int end)
         }
 }
 
-void exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, int result_index, double * NN_points, double itrative_threshold = 0, double itrative_center = 0)
+void exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, int result_index, double * NN_points, double displacement = 0, double itrative_center = 0, double dist_to_prev_NN = 0)
 {
     double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
-    int NN_index = nearest_index;
+    if (NN_dist < dist_to_prev_NN) dist_to_prev_NN = NN_dist;
+    /*if (dist_to_prev_NN != 0)
+    {
+    	if (dist_to_prev_NN < NN_dist)
+    		NN_dist = dist_to_prev_NN;
+    }*/
+    int NN_index = nearest_index;    
     double dist;
     bool itrative_threshold_visitd = false;
     bool right_progress = true;
@@ -246,11 +252,12 @@ void exact_knn_projected(const Frame* reference,vector<double>query, double quer
         {
         	NN_index = next;
         	NN_dist = dist;
+        	if (NN_dist < dist_to_prev_NN) dist_to_prev_NN = NN_dist;
         }
-        if (itrative_threshold > 0)
+        if (displacement > 0)
         {
         	if (
-        		abs(reference->data[next][point_dim] - itrative_center)> itrative_threshold )
+        		abs(reference->data[next][point_dim] - itrative_center)> sqrt(3)*(displacement+dist_to_prev_NN) )
         	{	
         		itrative_threshold_visitd = true;
         		//cout<<endl<<"itrative threshold visitd for point "<<result_index<<" "<<reference->data[next][point_dim]<<" - "<<itrative_center<<" > "<<itrative_threshold<<endl;
@@ -390,7 +397,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	// initialize the rotation matrix
 	clearRotation(rotationMatrix);
 
-	const int maxIterations = 20;
+	const int maxIterations = 100;
 	//const int numRandomSamples = dynamicPointCloud.size();
 	const int numRandomSamples = 400;
 	const float eps = 1e-8;
@@ -400,15 +407,16 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 	vector<int> random_indices1;
 	int randSample;
-	for (int i = 0; i < 150; i++)
+	for (int i = 0; i < 100; i++)
 		{
-			//randSample = std::rand() % dynamicPointCloud.size();
-			random_indices1.push_back(1);
+			randSample = std::rand() % dynamicPointCloud.size();
+			random_indices1.push_back(randSample);
 			//for (int j2 = 0 ; j2<1000;j2++)
 			//j1++;
-			//cout<<"index: " <<random_indices[random_indices.size()-1]<<endl;
+			cout<<"index: " <<random_indices1[random_indices1.size()-1]<<endl;
 		}
 		int point_cloud_size = dynamicPointCloud.size();
+		
 		
 
 
@@ -449,14 +457,16 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	double displacement[2048];
 	double dist_to_prev_NN[2048];
 	double p_projected_values[2048];
-	//double * dist_to_prev_NN  = new double[dynamicPointCloud.size()];
 	double x_prev,y_prev,z_prev;
 	double itrative_threshold;
 	double prev_NN_projected;
 	double p_projected;
-	use_proposed = true;
+	int switch_iteration = 9;
+	use_proposed = false;
 	for (int iter = 0; iter < maxIterations && abs(cost) > eps; iter++)
 	{
+		if (iter > switch_iteration)
+			use_proposed = true;
 		iter_time = -omp_get_wtime();
 		sum_calcs = 0;
 		num_iterations++;
@@ -480,27 +490,19 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			tree->search(&p, &x);
 			kd_tree_search_time += omp_get_wtime();
 			sum_kd_search_time += kd_tree_search_time;
-
 			qd = p - dynamicMid;
 			qs = x - staticMid;
-
 			outerProduct(&qs, &qd, w);
 			addMatrix(w, U, U);
-
 			cost += error(&x, &p, rotationMatrix, translation);
 		}
 
 		}
 		else
 		{
-		for (int i = 0; i < point_cloud_size; i++)
+		for (int i = 0; i < random_indices1.size(); i++)
 		{
-			//cout<<endl<<"processing point "<<i<<"in iteration: "<<iter<<endl;
-			
-			//if  (i==index_to_ckeck) cout<<endl<<"1: iteration: "<<iter<<"displacement[i]: "<<" , "<<displacement[i]<<endl;
-			//int randSample = std::rand() % dynamicPointCloud.size();
-			//p = *dynamicPointCloud[randSample];
-			p = *dynamicPointCloud[i];
+			p = *dynamicPointCloud[random_indices1[i]];
 			p_projected = p.pos[0] + p.pos[1] + p.pos[2];
 			p_projected_values[i] = p_projected;
 			vector <double> p_vec(3);
@@ -508,69 +510,28 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			{
 				p_vec[d] = p.pos[d];
 			}
-			if (iter ==0)
+			if (iter ==switch_iteration+1)
 			{
 				int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
-				//void exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, int result_index, double * NN_points)
 				num_calcs = 0;
 	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points);
 	        	sum_calcs += num_calcs;
 	        	kd_tree_search_time = -omp_get_wtime();
-				//tree->search(&p, &x);
-				//NN_points[result_index *point_dim+i] = reference->data[NN_index][point_dim];
-				//x.pos[0] = reference.data[result_NN][0];
-				//x.pos[1] = reference.data[result_NN][1];
-				//x.pos[2] = reference.data[result_NN][2];
 				x.pos[0] = NN_points[i * point_dim];
 				x.pos[1] = NN_points[i * point_dim + 1];
 				x.pos[2] = NN_points[i * point_dim + 2];
-				//x.pos[1] = reference.data[result_NN][1];
-				//x.pos[2] = reference.data[result_NN][2];
 			}
 			else
 			{
-
-	/*if (i == index_to_ckeck)
-				{
-							cout<<endl<<"----------------------- iteration: "<<iter<<endl;
-		for (int i2 = 0 ; i2<point_cloud_size;i2++)
-		{
-			cout<<endl<<"(start) i: "<<i2<<" : "<<displacement[i2];
-		}
-		cout<<endl<<"*********************** iteration: "<<iter<<endl;
-				}	*/
-
-
-				itrative_threshold = displacement[i] + p_projected_values[i];
-				//cout<<endl<<"itrative_threshold: "<<itrative_threshold<<" , "<< displacement[i] <<" , "<< dist_to_prev_NN[i]<<endl;
-				//if  (i==index_to_ckeck) cout<<endl<<"2: iteration: "<<iter<<"displacement[i]: "<<" , "<<displacement[i]<<endl;
-				//cout<<endl<<"i: "<<i<<" itrative_threshold: "<<itrative_threshold<<" , "<< displacement[i] <<" , "<< dist_to_prev_NN[i]<<endl;
-				//cout<<endl<<"itrative_threshold: "<<itrative_threshold<<endl;
-				//cout<<endl<<"iter: "<<iter<<" prev_NN_projected: "<<prev_NN_projected<<endl;
+				//itrative_threshold = displacement[i] + dist_to_prev_NN[i];
 				int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
-
-				//void exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, int result_index, double * NN_points)
-	        	//exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points, itrative_threshold, NN_projected[i]);
 	        	num_calcs = 0;
-	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points, itrative_threshold, p_projected_values[i]);
+	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points, displacement[i], p_projected_values[i], dist_to_prev_NN[i]);
 	        	sum_calcs += num_calcs;
-	        	//exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points);
-				//int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1, NN_projected+(i*sizeof(double)));
-	        	//int result_NN = exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points);
-				//int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1, NN_projected+(i*sizeof(double)));
-	        	//int result_NN = exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points);
 	        	kd_tree_search_time = -omp_get_wtime();
-				//tree->search(&p, &x);
-				//x.pos[0] = reference.data[result_NN][0];
-				//x.pos[1] = reference.data[result_NN][1];
-				//x.pos[2] = reference.data[result_NN][2];
-
 				x.pos[0] = NN_points[i * point_dim];
 				x.pos[1] = NN_points[i * point_dim + 1];
 				x.pos[2] = NN_points[i * point_dim + 2];
-				//x.pos[0] = reference.data[result_NN][0];
-				//x.pos[1] = reference.data[result_NN][1];
-				//x.pos[2] = reference.data[result_NN][2];	
 			}
 			qd = p - dynamicMid;
 			qs = x - staticMid;
@@ -579,9 +540,6 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			cost += error(&x, &p, rotationMatrix, translation);
 		}
 	}
-		
-
-
 		copyMatToUV(U, uSvd);
 		dsvd(uSvd, 3, 3, sigma, vSvd);
 		copyUVtoMat(uSvd, U);
@@ -603,22 +561,9 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			z_prev = dynamicPointCloud[i]->pos[2];
 			rotate(dynamicPointCloud[i], rotationMatrix, &p);
 			translate(&p, translation, dynamicPointCloud[i]);			
-			//cout<<endl<<"displacement of point "<<i<<" has been changed"<<endl;
-			//if  (i==1236) cout<<endl<<"second iteration: "<<iter<<"displacement[i]: "<<" , "<<displacement[i]<<endl;
 			dist_to_prev_NN[i] = sqrt(pow(NN_points[(i*point_dim)] - dynamicPointCloud[i]->pos[0],2) + pow(NN_points[(i*point_dim+1)]-dynamicPointCloud[i]->pos[1],2) +pow(NN_points[i*point_dim+2] - dynamicPointCloud[i]->pos[2],2));
 			displacement[i] = sqrt(pow(x_prev - dynamicPointCloud[i]->pos[0],2) + pow(y_prev-dynamicPointCloud[i]->pos[1],2) +pow(z_prev - dynamicPointCloud[i]->pos[2],2));
-			//if  (i==index_to_ckeck) cout<<endl<<"3: iteration: "<<iter<<"displacement[i]: "<<" , "<<displacement[i]<<endl;
-			//if (i==1236) cout<<endl<<"dist_to_prev_NN[i] :"<<" , "<<dist_to_prev_NN[i]<<endl;
 		}
-				/*	if (true)
-				{
-							cout<<endl<<"----------------------- iteration: "<<iter<<endl;
-		for (int i2 = 0 ; i2<point_cloud_size;i2++)
-		{
-			cout<<endl<<"(end) i: "<<i2<<" : "<<displacement[i2];
-		}
-		cout<<endl<<"*********************** iteration: "<<iter<<endl;
-				}*/
 		cout<<endl<<"in iteration "<<iter<<" average number of calcs: "<<((float)sum_calcs / point_cloud_size)<<endl;
 		cout<<endl<<"in iteration "<<iter<<" time: "<<iter_time+omp_get_wtime()<<endl;
 		cout<<endl<<"in iteration "<<iter<<" cost: "<<cost<<endl;
@@ -650,3 +595,33 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 
 }
+
+
+/*
+
+whole kd-tree search:
+
+total_error0.00118645
+whole_time: 0.277023
+sh: 1: pause: not found
+
+
+
+after 15 iterations:
+
+Alignment Error: 0.00000 
+total_error5.14011e-07
+whole_time: 0.903092
+sh: 1: pause: not found
+
+
+
+after 17 iterations:
+Alignment Error: 0.00002 
+total_error0.000408422
+whole_time: 0.690345
+sh: 1: pause: not found
+
+
+
+*/
