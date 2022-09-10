@@ -163,11 +163,15 @@ int main()
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();
 	double whole_time = -omp_get_wtime();
+	double each_test_time = 0;
 	int num_tests = 20;
 	for (int i = 0 ;i< num_tests; i++)
 	{
 		cout<<"test number "<<i<<endl;
-	icpExample(&reference , &query);
+		each_test_time = -omp_get_wtime();
+		icpExample(&reference , &query);
+		each_test_time += omp_get_wtime();
+		cout<<endl<<"each_test_time: "<<each_test_time<<endl;
 	}
 	total_error /= num_tests;
 	cout<<"total_error"<<total_error<<endl;
