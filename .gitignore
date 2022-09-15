@@ -32,3 +32,4 @@
 *.app
 src/reformed_dataset
 *.png
+./init_points/

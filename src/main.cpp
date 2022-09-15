@@ -158,7 +158,9 @@ void icpExample(Frame *reference, Frame* query)
 
 int main()
 {
-	Frame reference("reformed_dataset/PC1.txt");
+	//Frame reference("reformed_dataset/PC1.txt");
+	//Frame reference("reformed_dataset/1_gr.txt");
+	Frame reference("reformed_dataset/rad_and_black_0.txt");
 	Frame query("reformed_dataset/1_gr.txt");
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();
