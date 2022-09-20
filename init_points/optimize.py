@@ -1,8 +1,8 @@
 import numpy as np
-num_points_in_equation = 7
+num_points_in_equation = 100
 
 
-with open("/home/behnam/phd/Research/ICP/init points/points_backup") as f:
+with open("/home/behnam/phd/Research/ICP/init_points/points") as f:
 	lines = f.readlines()
 ref = []
 query = []
@@ -21,22 +21,12 @@ query = np.array(query).astype(np.float64)
 ref = ref[0:num_points_in_equation]
 query = query[0:num_points_in_equation]
 
-
-distances = np.sum(np.sqrt((pow((ref - query),2))),1)
-
-
-
-
-
+#distances = np.sum(np.sqrt((pow((ref - query),2))),1)
+#distances = np.sqrt(np.sum(pow(ref - query,2)))
+distances = np.sqrt(np.sum(pow(ref - query,2),1))
 A = ref - query
 #b = np.zeros((num_points_in_equation, 1))
-
-
-
-
-
-
-x = np.linalg.lstsq(A,distances)
+x = np.linalg.lstsq(A,distances, rcond = None)
 #x = np.linalg.solve(A,b)
 
 

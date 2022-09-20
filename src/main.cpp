@@ -61,7 +61,7 @@ public:
     }
 };
 
-void createPoints(std::vector<Point*>& points, Frame * reference , Frame * query)
+void createPoints(std::vector<Point*>& points, Frame * reference)
 {
 	for (int i = 0 ; i < reference->data.size(); i++)
 	{
@@ -101,22 +101,81 @@ This example computes a point cloud of a unit box (Static point cloud)
 and a second unit box with a linear transform applied (dynamic point cloud).
 ICP is used to transform the dynamic point cloud to best match the static point cloud.
 */
+
+using namespace std;
+
+void expand_point_cloud (vector <Point*>* input)
+{
+	//double minx, maxx, miny, maxy, minx, maxz;
+	double min_cordinates[point_dim];
+	double max_cordinates[point_dim];
+	for (int dim =0 ; dim < point_dim; dim++)
+	{
+		min_cordinates[dim] = (*input)[0]->pos[dim];
+		max_cordinates[dim] = (*input)[0]->pos[dim];
+	}
+
+	for (int i = 1 ; i<input->size(); i++)
+	{
+		for(int j = 0 ; j < point_dim; j++)
+		{
+			if ((*input)[i]->pos[j] < min_cordinates[j])
+			{
+				min_cordinates[j] = (*input)[i]->pos[j];
+			}
+			if ((*input)[i]->pos[j] > max_cordinates[j])
+			{
+				max_cordinates[j] = (*input)[i]->pos[j];
+			}
+		}
+	}
+	cout<<endl<<min_cordinates[0]<<" to "<<max_cordinates[0]<<endl;
+	cout<<endl<<min_cordinates[1]<<" to "<<max_cordinates[1]<<endl;
+	cout<<endl<<min_cordinates[2]<<" to "<<max_cordinates[2]<<endl;
+	int index =0;
+	/*while(1)
+	{
+		cout<<"index: "; cin>>index;
+		cout<<endl<<"["<<(*input)[index]->pos[0]<<" , "<<(*input)[index]->pos[1]<<" , "<<(*input)[index]->pos[2]<<"]"<<endl;
+	}
+	exit(0);*/
+	int input_size = input->size();
+	for (int i = 0 ; i < input_size; i++)
+	{
+		input->push_back(new Point
+			((*input)[i]->pos[0]+max_cordinates[0],(*input)[i]->pos[1],(*input)[i]->pos[2]));
+	}
+	
+
+}
+
 void icpExample(Frame *reference, Frame* query)
 {
 	
 	//create a static box point cloud used as a reference.
 	std::vector<Point*> staticPointCloud;
-	createPoints(staticPointCloud, reference, query);
+	createPoints(staticPointCloud, reference);
+	expand_point_cloud(&staticPointCloud);
+	expand_point_cloud(&staticPointCloud);
+	expand_point_cloud(&staticPointCloud);
+	expand_point_cloud(&staticPointCloud);
+	//expand_point_cloud(&staticPointCloud);
 
 	//create a dynamic box point cloud.
 	//this point cloud is transformed to match the static point cloud.
 	std::vector<Point*> dynamicPointCloud;
-	createPoints(dynamicPointCloud, reference , query);
+	createPoints(dynamicPointCloud, query);
+	expand_point_cloud(&dynamicPointCloud);
+	expand_point_cloud(&dynamicPointCloud);
+	expand_point_cloud(&dynamicPointCloud);
+	expand_point_cloud(&dynamicPointCloud);
+	//expand_point_cloud(&dynamicPointCloud);
+	cout<<endl<<"expansion done"<<endl;
 
 	//apply an artitrary rotation and translation to the dynamic point cloud to misalign the point cloud.
-	float rotation[] = { 1.0f, 0.0f, 0.0f,	0.0f, 0.70710678f, -0.70710678f,	0.0f, 0.70710678f, 0.70710678f };
-	float translation[] = { -0.75f, 0.5f, -0.5f };
-	applyAffineTransform(dynamicPointCloud, rotation, translation);
+	//float rotation[] = { 1.0f, 0.0f, 0.0f,	0.0f, 0.70710678f, -0.70710678f,	0.0f, 0.70710678f, 0.70710678f };
+	//float translation[] = { -0.75f, 0.5f, -0.5f };
+	//applyAffineTransform(dynamicPointCloud, rotation, translation);
 
 	/*printf("Static point Cloud: \n");
 	for (int i = 0; i < staticPointCloud.size(); i++)
@@ -133,6 +192,7 @@ void icpExample(Frame *reference, Frame* query)
 	printf("\n");*/
 
 	//use iterative closest point to transform the dynamic point cloud to best align the static point cloud.
+
 	icp(dynamicPointCloud, staticPointCloud);
 
 	/*printf("Dynamic point Cloud Transformed: \n");
@@ -143,8 +203,9 @@ void icpExample(Frame *reference, Frame* query)
 	printf("\n");*/
 
 	float alignmentError = 0.0f;
-	for (int i = 0; i < dynamicPointCloud.size(); i++)
+	for (int i = 0; i < min(dynamicPointCloud.size(), staticPointCloud.size()); i++)
 	{
+		//cout<<endl<<"for point "<<i<<" it is ok "<<endl;
 		alignmentError += pow(dynamicPointCloud[i]->pos[0] - staticPointCloud[i]->pos[0], 2.0f);
 		alignmentError += pow(dynamicPointCloud[i]->pos[1] - staticPointCloud[i]->pos[1], 2.0f);
 		alignmentError += pow(dynamicPointCloud[i]->pos[2] - staticPointCloud[i]->pos[2], 2.0f);
@@ -159,14 +220,16 @@ void icpExample(Frame *reference, Frame* query)
 int main()
 {
 	//Frame reference("reformed_dataset/PC1.txt");
-	//Frame reference("reformed_dataset/1_gr.txt");
+	//Frame reference("reformed_dataset/0_gr.txt");
 	Frame reference("reformed_dataset/rad_and_black_0.txt");
-	Frame query("reformed_dataset/1_gr.txt");
+	//Frame reference("reformed_dataset/rad_and_black_0.txt");
+	Frame query("reformed_dataset/rad_and_black_1.txt");
+	//Frame query("reformed_dataset/1_gr.txt");
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();
 	double whole_time = -omp_get_wtime();
 	double each_test_time = 0;
-	int num_tests = 20;
+	int num_tests = 1;
 	for (int i = 0 ;i< num_tests; i++)
 	{
 		cout<<"test number "<<i<<endl;

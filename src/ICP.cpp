@@ -22,16 +22,37 @@ int num_calcs;
 //double basis[3] = {6.89697076,3.52467804,2.04844848};
 //double basis[3] = {1.87220823,0.76542574,0.41296428};
 //double basis[3] = {1.09387599, -0.96979575 , 0.94387252};
-double basis[3] = {1,1,1};
+//double basis[3] = {1,1,-1};
 //double basis[3] = {1.51664444, 0.66704231, 0.51779803};
 //double basis[3] = {4.07571969, 1.99038848, 1.32392432};
 //double basis[3] = {1.12409238, -0.90933214,  0.94841502};
-
-//double basis[3] = {1,-1,1};
-
+// double basis[3] = {0.11346113, -0.71007125,  1.34066972};
+//double basis[3] = {0.29276996, -0.6530365 ,  1.33276279};
+//double basis[3] = {-0.12370598, -0.10563619, -1.31032003};
+//double basis[3]  = {
+ //double basis[3] = {0.11346113, -0.71007125,  1.34066972}
+//double basis[3] = {1,1,1};
+//double basis[3] = {-0.51475309, -0.29207345,  0.58999927};
+//double basis[3]  = {0.46084765, 0.18950231, 0.68975714};
+//double basis[3] = {-0.06889851,  0.00933936, -0.71927585};
+//double basis[3] = {0.02665797,  0.02011677, -0.11730251};
+//double basis[3] = {-0.47216308, -0.06279136,  1.00655682};
+//double basis[3] = {-0.10831018, -0.65576258,  2.53081975};
+//double basis[3] = {-0.63842603,  0.02794823,  2.83228815};
+//double basis[3] = {0.05957336, -0.35304188,  0.96837945};
+//double basis[3] = {0,-1,-1};
+//double basis[3] = {0.39195903, 0.57994389, 0.72309869};
+//double basis[3] = {1,1,1};
+//double basis[3] = {0.01105764, 0.50933852, 0.74604819};
+double basis[3] = {1,1,1};
 double basis_size = sqrt(basis[0] * basis[0] + basis[1] * basis[1] + basis[2] * basis[2]);
-bool save_points = false;
-int num_initial_points =39000;
+bool iter_save_points = true;
+bool main_save_points = false;
+bool random_init_points = false;
+int num_initial_points =200;
+int svd_size = 150;
+//int * past_nearest_indices = new int[point_cloud_size];
+
 vector<vector <double>> init_queries;
 vector<vector <double>> init_references(num_initial_points);
 vector <double> temp_ref(3);
@@ -229,13 +250,13 @@ int binary_search (double ** reference, double query, int begin, int end)
         }
 }
 
-void exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, int result_index, double * NN_points, int * output_index,  double displacement = 0, double itrative_center = 0, double dist_to_prev_NN = 0)
+int exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, double * NN_points, int result_index, int bucket_size = 0)
 {
-	init_queries.push_back(query);
+	if (iter_save_points) init_queries.push_back(query);
 	//cout<<endl<<"init_references: "<<init_references.size();
 	//cout<<endl<<"a new call for "<<nearest_index<<endl;
     double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
-    if (NN_dist < dist_to_prev_NN) dist_to_prev_NN = NN_dist;
+    
     /*if (dist_to_prev_NN != 0)
     {
     	if (dist_to_prev_NN < NN_dist)
@@ -243,7 +264,6 @@ void exact_knn_projected(const Frame* reference,vector<double>query, double quer
     }*/
     int NN_index = nearest_index;    
     double dist;
-    bool itrative_threshold_visitd = false;
     bool right_progress = true;
     bool left_progress = true;
     bool original_threshold_visited = false;
@@ -273,29 +293,19 @@ void exact_knn_projected(const Frame* reference,vector<double>query, double quer
     	//cout<<endl<<"in processing "<<nearest_index<<" "<< left_progress<<" , "<<right_progress<<" ----------: "<<next;
         dist = calc_distance(reference->data[next], query, Euclidean);
         num_calcs++;
+        if ((bucket_size) && (num_calcs>bucket_size))
+        {
+        	search_cont = false;
+        }
         if (dist < NN_dist)
         {
         	NN_index = next;
         	NN_dist = dist;
-        	if (NN_dist < dist_to_prev_NN) dist_to_prev_NN = NN_dist;
-        }
-        if (displacement > 0)
-        {
-        	if (abs(reference->data[next][point_dim] - itrative_center)> (basis_size*(displacement+dist_to_prev_NN)) )
-        	{	
-        		itrative_threshold_visitd = true;
-        		//cout<<"itrative threshold visitd for point "<<result_index<<" "<<reference->data[next][point_dim]<<endl;
-        	}
         }
 
         if  ((abs( reference->data[next][point_dim] - query_projected ) > (basis_size*NN_dist)))
-        	{original_threshold_visited = true;}
+        	{search_cont = false;}
 
-            search_cont = !(original_threshold_visited || itrative_threshold_visitd);
-            if (itrative_threshold_visitd)
-            {
-            	//cout<<"original_threshold_visited: "<<original_threshold_visited<<" itrative_threshold_visitd: "<<itrative_threshold_visitd<<endl;
-            }
         if (left_progress && right_progress)
         {
                         if (left_candidate == -1)
@@ -357,14 +367,17 @@ void exact_knn_projected(const Frame* reference,vector<double>query, double quer
     for (int i = 0 ; i < point_dim; i++)
     {
     	NN_points[result_index *point_dim+i] = reference->data[NN_index][i];
-    	//cout<<endl<<"init_references: "<<init_references.size();
     	temp_ref[i]= reference->data[NN_index][i];
-
-    	output_index[result_index] = NN_index;
     }
-    init_references[result_index] = temp_ref;
+    if (iter_save_points)
+    {init_references[result_index] = temp_ref;}
     //cout<<endl<<num_calcs<<endl;
+    return NN_index;
 }
+
+
+
+
 
 /*int exact_knn_projected_(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points)
 {
@@ -415,7 +428,10 @@ if (left_arrow>0)
 
 void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &staticPointCloud)
 {
-	ofstream fout("/home/behnam/phd/Research/ICP/init points/points");
+	
+
+	//fout.close();
+	
 	int test_sum_calcs = 0;
 	float rotationMatrix[9];
 	float translation[3];
@@ -435,7 +451,12 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	// create the kd tree
 	KdTree* tree = new KdTree(staticPointCloudCopy);
 	Frame reference(&staticPointCloudCopy);
+	double create_reference_data_time = -omp_get_wtime();
 	reference.create_reference_data();
+	create_reference_data_time += omp_get_wtime();
+	cout<<endl<<create_reference_data_time<<endl;
+	
+
 	for (int i = 0 ; i < 5; i++)
 	{
 		for (int j =0 ; j < point_dim+1; j++)
@@ -456,7 +477,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 	const int maxIterations = 100;
 	//const int numRandomSamples = dynamicPointCloud.size();
-	const int numRandomSamples = 400;
+	const int numRandomSamples = svd_size;
 	const float eps = 1e-8;
 	gs::Point p;
 	gs::Point x;
@@ -465,7 +486,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
 	vector<int> random_indices1;
 	int randSample;
-	for (int i = 0; i < point_cloud_size; i++)
+	for (int i = 0; i < svd_size; i++)
 		{
 			randSample = std::rand() % dynamicPointCloud.size();
 			//random_indices1.push_back(randSample);
@@ -474,9 +495,62 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			//j1++;
 			//cout<<"index: " <<random_indices1[random_indices1.size()-1]<<endl;
 		}
-		
-		
-		
+
+		if (random_init_points)
+		{
+
+
+		//vector<vector <double>> init_first_pair(num_initial_points);
+		//vector<vector <double>> init_second_pair(num_initial_points);
+		//vector <double> temp_pair;
+		vector<vector<double>> init_first_pair(num_initial_points , vector<double> (point_dim, 0));
+		vector<vector<double>> init_second_pair(num_initial_points , vector<double> (point_dim, 0));
+		vector<double> init_distances(num_initial_points);
+		int randSample1;
+		int randSample2;
+		//vector<int> init_indices(num_initial_points*2) [2];
+		for (int i = 0; i < num_initial_points; i++)
+		{
+			randSample1 = std::rand() % dynamicPointCloud.size();
+			randSample2 = std::rand() % dynamicPointCloud.size();
+			for (int j = 0 ; j < point_dim; j++)
+			{
+				init_first_pair[i][j] = reference.data[randSample1][j];
+				init_second_pair[i][j] = reference.data[randSample2][j];
+			}
+			double sum = 0;
+			for (int j = 0 ; j < point_dim; j++)
+			{
+				sum+= pow((reference.data[randSample1][j]) - (reference.data[randSample2][j]),2);
+			}
+			init_distances[i] = sqrt(sum);
+		}
+		ofstream random_points("/home/behnam/phd/Research/ICP/init_points/random_points");
+		for(int i = 0; i < num_initial_points; i++)
+			{
+				cout<<endl<<"init first pair:  "<<i<<" 'th point: ["<<init_first_pair[i][0]<<" , "<<init_first_pair[i][1]<<" , "<<init_first_pair[i][2]<<"]"<<endl;
+				cout<<endl<<"init second pair: "<<i<<" 'th point: ["<<init_second_pair[i][0]<<" , "<<init_second_pair[i][1]<<" , "<<init_second_pair[i][2]<<"]"<<endl;
+				cout<<endl<<"distance        : "<<init_distances[i]<<endl;
+			}
+
+
+			for(int i = 0; i < num_initial_points; i++)
+			{
+				for (int j = 0 ; j <point_dim;j++)
+				{
+					random_points<<init_first_pair[i][j]<<endl;
+					//cout<<endl<<"reference "<<i<<" "<<j<<" wrote"<<endl;
+				}
+				for (int j = 0 ; j <point_dim;j++)
+				{
+					random_points<<init_second_pair[i][j]<<endl;
+				}
+			}
+
+
+			
+exit(0);
+		}
 
 
 
@@ -513,10 +587,8 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	double * NN_points = new double [dynamicPointCloud.size() * point_dim];
 	//double NN_points[39000*3];
 	//double * displacement = new double[dynamicPointCloud.size()];
-	double displacement[39000];
-	double dist_to_prev_NN[39000];
-	double p_projected_values[39000];
-	int output_index[39000];
+	
+	
 	double x_prev,y_prev,z_prev;
 	double itrative_threshold;
 	double prev_NN_projected;
@@ -545,74 +617,115 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 		if (!use_proposed)
 		{
 			for (int i = 0; i < numRandomSamples; i++)
-		{
-			int randSample = std::rand() % dynamicPointCloud.size();
-			// sample the dynamic point cloud
-			p = *dynamicPointCloud[randSample];
+			{
+				int randSample = std::rand() % dynamicPointCloud.size();
+				// sample the dynamic point cloud
+				p = *dynamicPointCloud[randSample];
 
-			// get the closest point in the static point cloud
-			kd_tree_search_time = -omp_get_wtime();
-			tree->search(&p, &x);
-			kd_tree_search_time += omp_get_wtime();
-			sum_kd_search_time += kd_tree_search_time;
-			qd = p - dynamicMid;
-			qs = x - staticMid;
-			outerProduct(&qs, &qd, w);
-			addMatrix(w, U, U);
-			cost += error(&x, &p, rotationMatrix, translation);
-		}
-
+				// get the closest point in the static point cloud
+				kd_tree_search_time = -omp_get_wtime();
+				tree->search(&p, &x);
+				kd_tree_search_time += omp_get_wtime();
+				sum_kd_search_time += kd_tree_search_time;
+				qd = p - dynamicMid;
+				qs = x - staticMid;
+				outerProduct(&qs, &qd, w);
+				addMatrix(w, U, U);
+				cost += error(&x, &p, rotationMatrix, translation);
+			}
 		}
 		else
 		{
-		for (int i = 0; i < random_indices1.size(); i++)
-		{
-			//if (iter < 2) cout<<endl<<"processing point: "<<i;
-			p = *dynamicPointCloud[random_indices1[i]];
-			p_projected = (p.pos[0]*basis[0]) + (p.pos[1]*basis[1]) + (p.pos[2]*basis[2]);
-			p_projected_values[i] = p_projected;
-			vector <double> p_vec(3);
-			for (int d = 0 ; d < point_dim;d++)
+			for (int i = 0; i < random_indices1.size(); i++)
 			{
-				p_vec[d] = p.pos[d];
-			}
-			double binary_search_time = -omp_get_wtime();
-			int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
-			binary_search_time += omp_get_wtime();
-			if (i ==900)
-			{
-				cout<<endl<<"************************"<<endl;
-				cout<<"in iteration: "<<iter<<" nearest_index is: "<<nearest_index;
-				cout<<endl<<"************************"<<endl;
-			}
+				//cout<<"i:"<<i<<endl;
+				//if (iter < 2) cout<<endl<<"processing point: "<<i;
+				//int randSample = std::rand() % dynamicPointCloud.size();
+				// sample the dynamic point cloud
+				//p = *dynamicPointCloud[randSample];
+				p = *dynamicPointCloud[random_indices1[i]];
+				p_projected = (p.pos[0]*basis[0]) + (p.pos[1]*basis[1]) + (p.pos[2]*basis[2]);
+				
+				vector <double> p_vec(3);
+				for (int d = 0 ; d < point_dim;d++)
+				{
+					p_vec[d] = p.pos[d];
+				}
+				double binary_search_time = -omp_get_wtime();
+				int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
 
-			num_calcs = 0;
-			double exact_search_time = -omp_get_wtime();
-        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, i, NN_points, output_index);
-        	exact_search_time += omp_get_wtime();
-        	cout<<endl<<"point: "<<i<<" ratio: "<<binary_search_time / exact_search_time;
-        	//cout<<endl<<"in iteration: "<<iter<<" for point " <<i<<" : "<<nearest_index<<" , " <<output_index[i]<<" direction: "<< output_index[i] - nearest_index<<endl;
-        	sum_calcs += num_calcs;
-        	kd_tree_search_time = -omp_get_wtime();
-			x.pos[0] = NN_points[i * point_dim];
-			x.pos[1] = NN_points[i * point_dim + 1];
-			x.pos[2] = NN_points[i * point_dim + 2];
-		
-			qd = p - dynamicMid;
-			qs = x - staticMid;
-			outerProduct(&qs, &qd, w);
-			addMatrix(w, U, U);
-			cost += error(&x, &p, rotationMatrix, translation);
-			/*if (i<num_initial_points)
-			{
-				cout<<"point"<<i<<"added "<<init_queries.size()<<" "<<init_references.size()<<endl;;
-				init_queries[i] = p_vec;
-				temp_ref[0] = x.pos[0];
-				temp_ref[1] = x.pos[1];
-				temp_ref[2] = x.pos[2];
-				init_references[i] = temp_ref;
-			}*/
+				binary_search_time += omp_get_wtime();
+				if (i ==random_indices1[5])
+				{
+					cout<<endl<<"************************"<<endl;
+					cout<<"in iteration: "<<iter<<" nearest_index is: "<<nearest_index;
+					cout<<endl<<"************************"<<endl;
+				}
+
+				num_calcs = 0;
+				if (i<num_initial_points) {iter_save_points = true;}
+				else {iter_save_points = false;}
+				double exact_search_time = -omp_get_wtime();
+				int bucket_size = 0;
+	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, NN_points, i, bucket_size);
+	        	//cout<<endl<<num_calcs<<endl;
+	        	exact_search_time += omp_get_wtime();
+	        	cout<<endl<<"point: "<<i<<" ratio: "<<binary_search_time / exact_search_time;
+	        	//cout<<endl<<"in iteration: "<<iter<<" for point " <<i<<" : "<<nearest_index<<" , " <<output_index[i]<<" direction: "<< output_index[i] - nearest_index<<endl;
+	        	sum_calcs += num_calcs;
+	        	kd_tree_search_time = -omp_get_wtime();
+				x.pos[0] = NN_points[i * point_dim];
+				x.pos[1] = NN_points[i * point_dim + 1];
+				x.pos[2] = NN_points[i * point_dim + 2];
+			
+				qd = p - dynamicMid;
+				qs = x - staticMid;
+				outerProduct(&qs, &qd, w);
+				addMatrix(w, U, U);
+				cost += error(&x, &p, rotationMatrix, translation);
+				/*if (i<num_initial_points)
+				{
+					cout<<"point"<<i<<"added "<<init_queries.size()<<" "<<init_references.size()<<endl;;
+					init_queries[i] = p_vec;
+					temp_ref[0] = x.pos[0];
+					temp_ref[1] = x.pos[1];
+					temp_ref[2] = x.pos[2];
+					init_references[i] = temp_ref;
+				}*/
+
+				//***********************************
+				//saving the points when processing num_initial_points's point
+				//***********************************
+
+				if ((iter == 0) &&main_save_points && (i == num_initial_points-1))
+				{
+				ofstream fout("/home/behnam/phd/Research/ICP/init_points/points", ios::app);
+				for (int i3 = 0 ;i3 < num_initial_points; i3++ )
+				{
+					cout<<endl<<i3<<":"<<endl;
+					cout<<endl<<"inja: reference point: ";
+					for (int i4 = 0 ; i4 < point_dim; i4++)
+					{
+						cout<<init_references[i3][i4]<<" , ";
+						fout<<init_references[i3][i4]<<endl;
+						cout<<"neveshte shod";
+
+					}
+					cout<<endl<<"inja: query point: ";
+					for (int i4 = 0 ; i4 < point_dim; i4++)
+					{
+						cout<<init_queries[i3][i4]<<" , ";
+						fout<<init_queries[i3][i4]<<endl;
+					}
+					cout<<endl;
+				}
+				fout.close();
+				exit(0);
+				}
+
+
 		}
+
 	}
 		copyMatToUV(U, uSvd);
 		dsvd(uSvd, 3, 3, sigma, vSvd);
@@ -638,14 +751,20 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			//dist_to_prev_NN[i] = sqrt(pow(NN_points[(i*point_dim)] - dynamicPointCloud[i]->pos[0],2) + pow(NN_points[(i*point_dim+1)]-dynamicPointCloud[i]->pos[1],2) +pow(NN_points[i*point_dim+2] - dynamicPointCloud[i]->pos[2],2));
 			//displacement[i] = sqrt(pow(x_prev - dynamicPointCloud[i]->pos[0],2) + pow(y_prev-dynamicPointCloud[i]->pos[1],2) +pow(z_prev - dynamicPointCloud[i]->pos[2],2));
 		}
-		cout<<endl<<"in iteration "<<iter<<" average number of calcs: "<<((float)sum_calcs / point_cloud_size)<<endl;
-		test_sum_calcs += ((float)sum_calcs / point_cloud_size);
+		cout<<endl<<"in iteration "<<iter<<" average number of calcs: "<<((float)sum_calcs / svd_size)<<endl;
+		cout<<endl<<"in iteration "<<iter<<" cost is: "<<cost<<endl;
+		test_sum_calcs += ((float)sum_calcs / svd_size);
+
 		//cout<<endl<<"num_lefts: "<<num_lefts<<" num_rights: "<<num_rights<<endl;
 		//cout<<endl<<"in iteration "<<iter<<" time: "<<iter_time+omp_get_wtime()<<endl;
 		//cout<<endl<<"in iteration "<<iter<<" cost: "<<cost<<endl;
 		//cout<<endl<<endl<<endl<<"first iteration is ok:"<<endl;
 		//cout<<endl<<"and the results are:"<<endl;
 		cout<<endl<<init_references.size()<<" "<<init_queries.size()<<endl;
+
+		
+			
+		
 		/*if (save_points)
 		{
 		for (int i3 = 0 ;i3 < num_initial_points; i3++ )
@@ -670,6 +789,8 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 		
 		//exit(0);
 		}*/
+		//char temp;
+		//cin>>temp;
 	}
 
 	//cout<<endl<<"sum_kd_search_time"<<sum_kd_search_time<<endl;
@@ -727,5 +848,49 @@ whole_time: 0.690345
 sh: 1: pause: not found
 
 
+double basis[3] = {1,1,-1};
+in iteration 0 average number of calcs: 15760.5
+
+double basis[3] = {0.11346113, -0.71007125,  1.34066972};
+in iteration 0 average number of calcs: 22121.8
+
+double basis[3] = {0.29276996, -0.6530365 ,  1.33276279};
+22216.2
+
+
+double basis[3] = {-0.12370598, -0.10563619, -1.31032003};
+10046.3
+
+double basis[3] = {1,1,1};
+12795.5
+
+double basis[3] = {-0.51475309, -0.29207345,  0.58999927};
+16699.8
+
+double basis[3] = {-0.06889851,  0.00933936, -0.71927585};
+14020.4
+
+double basis[3] = {0.02665797,  0.02011677, -0.11730251};
+21420.4
+
+four times of expand:
+in iteration 99 average number of calcs: 3014.09
+
+in iteration 99 cost is: 206.711
+
+200 15000
+
+100 maxIterations 
+test_sum_calcs: 379976
+
+
+----deleting-----
+
+Alignment Error: 103796.72656 
+
+each_test_time: 550.876
+total_error103797
+
+whole_time: 550.895
 
 */
