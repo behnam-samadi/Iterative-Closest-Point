@@ -155,20 +155,20 @@ void icpExample(Frame *reference, Frame* query)
 	//create a static box point cloud used as a reference.
 	std::vector<Point*> staticPointCloud;
 	createPoints(staticPointCloud, reference);
-	expand_point_cloud(&staticPointCloud);
-	expand_point_cloud(&staticPointCloud);
-	expand_point_cloud(&staticPointCloud);
-	expand_point_cloud(&staticPointCloud);
+	//expand_point_cloud(&staticPointCloud);
+	//expand_point_cloud(&staticPointCloud);
+	//expand_point_cloud(&staticPointCloud);
+	//expand_point_cloud(&staticPointCloud);
 	//expand_point_cloud(&staticPointCloud);
 
 	//create a dynamic box point cloud.
 	//this point cloud is transformed to match the static point cloud.
 	std::vector<Point*> dynamicPointCloud;
 	createPoints(dynamicPointCloud, query);
-	expand_point_cloud(&dynamicPointCloud);
-	expand_point_cloud(&dynamicPointCloud);
-	expand_point_cloud(&dynamicPointCloud);
-	expand_point_cloud(&dynamicPointCloud);
+	//expand_point_cloud(&dynamicPointCloud);
+	//expand_point_cloud(&dynamicPointCloud);
+	//expand_point_cloud(&dynamicPointCloud);
+	//expand_point_cloud(&dynamicPointCloud);
 	//expand_point_cloud(&dynamicPointCloud);
 	cout<<endl<<"expansion done"<<endl;
 

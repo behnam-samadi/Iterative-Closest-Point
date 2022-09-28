@@ -34,3 +34,4 @@ src/reformed_dataset
 *.png
 ./init_points/
 init_points/
+notes_about_ICP/

@@ -12,6 +12,7 @@
 #include "numeric"
 #include <limits>
 #include <time.h>
+#include <bits/stdc++.h>
 int index_to_ckeck = 1237;
 #define point_dim 3
 using namespace std;
@@ -51,7 +52,7 @@ bool main_save_points = false;
 bool random_init_points = false;
 int num_initial_points =200;
 int svd_size = 150;
-//int * past_nearest_indices = new int[point_cloud_size];
+
 
 vector<vector <double>> init_queries;
 vector<vector <double>> init_references(num_initial_points);
@@ -63,6 +64,25 @@ enum dist_metric
     Euclidean,
     Manhattan
 };
+
+
+void shuffle_array(int arr[], int n)
+{
+ 
+    // To obtain a time-based seed
+    unsigned seed = 0;
+ 
+    // Shuffling our array
+    shuffle(arr, arr + n,
+            default_random_engine(seed));
+ 
+    // Printing our array
+    //for (int i = 0; i < n; ++i)
+        //cout << arr[i] << " ";
+    //cout << endl;
+}
+
+
 
 double calc_distance (double *v1, vector<double>v2, dist_metric type)
 {
@@ -250,9 +270,11 @@ int binary_search (double ** reference, double query, int begin, int end)
         }
 }
 
-int exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, double * NN_points, int result_index, int bucket_size = 0)
+int exact_knn_projected(const Frame* reference,vector<double>query, double query_projected, int nearest_index, int K, int row, int num_ref_points, double * NN_points, int result_index, vector<int>&search_range, int bucket_size = 0)
 {
 	if (iter_save_points) init_queries.push_back(query);
+	search_range[0] = nearest_index;
+	search_range[1] = nearest_index;
 	//cout<<endl<<"init_references: "<<init_references.size();
 	//cout<<endl<<"a new call for "<<nearest_index<<endl;
     double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
@@ -277,12 +299,14 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
         left_candidate++;
         bidirectional_cont = false;
         left_progress = false;
+        search_range[0] = left_candidate;
     }
     if (right_candidate == num_ref_points)
     {
         right_candidate--;
         bidirectional_cont = false;
         right_progress = false;
+        search_range[1] = right_candidate;
     }
     if (abs(reference->data[right_candidate][point_dim] - query_projected) <abs(reference->data[left_candidate][point_dim] - query_projected))
             next = right_candidate;
@@ -313,21 +337,25 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
                 left_candidate++;
                 bidirectional_cont = false;
                 left_progress = false;
+                search_range[0] = left_candidate;
             }
             if (right_candidate == num_ref_points)
             {
                 right_candidate--;
                 bidirectional_cont = false;
                 right_progress = false;
+                search_range[1] = right_candidate;
             }
              if (abs(reference->data[right_candidate][point_dim] - query_projected) <abs(reference->data[left_candidate][point_dim] - query_projected))
             {next = right_candidate;
                 right_candidate++;
+                search_range[1] =right_candidate;
             }
             else
             {
             next = left_candidate;
             left_candidate--;
+            search_range[0] = left_candidate;
         }
         }
         else
@@ -337,9 +365,11 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
         {
             right_candidate++;
             next = right_candidate;
+            search_range[1] = right_candidate;
             if (right_candidate == num_ref_points)
             {
                 right_candidate--;
+                search_range[1] = right_candidate;
                 bidirectional_cont = false;
                 right_progress = false;
             }
@@ -348,12 +378,14 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
         if (!right_progress)
         {
             left_candidate--;
+            search_range[0] = left_candidate;
             next = left_candidate;
             if (left_candidate == -1)
             {
                 left_candidate++;
                 bidirectional_cont = false;
                 left_progress = false;
+                search_range[0] = left_candidate;
             }
         }
         if ((!left_progress) && (!right_progress))        	
@@ -435,6 +467,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	int test_sum_calcs = 0;
 	float rotationMatrix[9];
 	float translation[3];
+	int number_of_in_ranges = 0;
 
 	std::vector<Point*> staticPointCloudCopy;
 	
@@ -447,6 +480,16 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 		Point* pCopy = new Point(staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
 		staticPointCloudCopy.push_back(pCopy);
 	}
+      /*cout<<endl<<"staticPointCloudCopy "<< staticPointCloudCopy.size();
+  cout<<endl<<"dynamicPointCloud "<< dynamicPointCloud.size();
+  for (int i =0 ; i < 10; i++)
+  {
+    cout<<endl<<staticPointCloudCopy[i]->pos[0]<<" , "<<staticPointCloudCopy[i]->pos[1]<<" , " <<staticPointCloudCopy[i]->pos[2]<<endl;    
+    cout<<endl<<dynamicPointCloud[i]->pos[0]<<" , "<<dynamicPointCloud[i]->pos[1]<<" , " <<dynamicPointCloud[i]->pos[2]<<endl;    
+
+  }
+
+  exit(0);*/
 
 	// create the kd tree
 	KdTree* tree = new KdTree(staticPointCloudCopy);
@@ -475,7 +518,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	// initialize the rotation matrix
 	clearRotation(rotationMatrix);
 
-	const int maxIterations = 100;
+	const int maxIterations = 50;
 	//const int numRandomSamples = dynamicPointCloud.size();
 	const int numRandomSamples = svd_size;
 	const float eps = 1e-8;
@@ -484,8 +527,15 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 	int j1 = 0;
 	int point_cloud_size = dynamicPointCloud.size();
 
-	vector<int> random_indices1;
+	//vector<int> random_indices1;
 	int randSample;
+	int * random_indices2 = new int[point_cloud_size];
+	for (int i = 0 ; i < point_cloud_size; i++)
+	{
+		random_indices2[i] = i;
+	}
+	//shuffle_array(random_indices2, point_cloud_size);
+	/*
 	for (int i = 0; i < svd_size; i++)
 		{
 			randSample = std::rand() % dynamicPointCloud.size();
@@ -494,7 +544,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 			//for (int j2 = 0 ; j2<1000;j2++)
 			//j1++;
 			//cout<<"index: " <<random_indices1[random_indices1.size()-1]<<endl;
-		}
+		}*/
 
 		if (random_init_points)
 		{
@@ -597,9 +647,13 @@ exit(0);
 	int num_rights = 0;
 	int num_lefts = 0;
 	use_proposed = false;
+	vector<int> search_range;
+	search_range.push_back(0);
+	search_range.push_back(1);
+	int * past_nearest_indices = new int[point_cloud_size];
 	for (int iter = 0; iter < maxIterations && abs(cost) > eps; iter++)
 	{
-
+		number_of_in_ranges = 0;
 		num_lefts = 0;
 		num_rights = 0;
 		if (iter > switch_iteration)
@@ -636,14 +690,17 @@ exit(0);
 		}
 		else
 		{
-			for (int i = 0; i < random_indices1.size(); i++)
+			if (iter == maxIterations-1)
+				svd_size = 150000;
+			for (int i = 0; i < svd_size; i++)
 			{
-				//cout<<"i:"<<i<<endl;
+				if (iter == maxIterations-1)
+				cout<<"i:"<<i<<endl;
 				//if (iter < 2) cout<<endl<<"processing point: "<<i;
-				//int randSample = std::rand() % dynamicPointCloud.size();
+				int randSample = std::rand() % dynamicPointCloud.size();
 				// sample the dynamic point cloud
 				//p = *dynamicPointCloud[randSample];
-				p = *dynamicPointCloud[random_indices1[i]];
+				p = *dynamicPointCloud[random_indices2[i]];
 				p_projected = (p.pos[0]*basis[0]) + (p.pos[1]*basis[1]) + (p.pos[2]*basis[2]);
 				
 				vector <double> p_vec(3);
@@ -653,24 +710,43 @@ exit(0);
 				}
 				double binary_search_time = -omp_get_wtime();
 				int nearest_index = binary_search (reference.data,p_projected, 0, reference.num_points-1);
-
 				binary_search_time += omp_get_wtime();
-				if (i ==random_indices1[5])
+				/*if (i ==random_indices1[5])
 				{
 					cout<<endl<<"************************"<<endl;
 					cout<<"in iteration: "<<iter<<" nearest_index is: "<<nearest_index;
 					cout<<endl<<"************************"<<endl;
-				}
+				}*/
 
 				num_calcs = 0;
 				if (i<num_initial_points) {iter_save_points = true;}
 				else {iter_save_points = false;}
 				double exact_search_time = -omp_get_wtime();
 				int bucket_size = 0;
-	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, NN_points, i, bucket_size);
+	        	exact_knn_projected(&reference,p_vec,p_projected, nearest_index, 1, 0,reference.num_points, NN_points, i, search_range, bucket_size);
 	        	//cout<<endl<<num_calcs<<endl;
+	        	//cout<<endl<<"iteration: "<<iter<<" in processing point: "<<i<<" "<<search_range[0]<<" to "<<search_range[1]<<" : " <<search_range[1] - search_range[0]<< " "<<num_calcs;
+	        	if (iter>0)
+	        	{
+	        		//cout<<" "<<past_nearest_indices[i]<<" ";
+	        		if ((past_nearest_indices[i] >= search_range[0]) && (past_nearest_indices[i] <= search_range[1]))
+	        		{
+	        			//cout<<"Yes"<<endl;
+	        			number_of_in_ranges++;
+	        		}
+	        		else
+	        		{
+	        			//cout<<"No"<<endl;
+	        		}
+
+	        	}
+	        	else
+	        	{
+	        		//cout<<endl;
+	        	}
+	        	past_nearest_indices[i] = nearest_index;
 	        	exact_search_time += omp_get_wtime();
-	        	cout<<endl<<"point: "<<i<<" ratio: "<<binary_search_time / exact_search_time;
+	        	//cout<<endl<<"point: "<<i<<" ratio: "<<binary_search_time / exact_search_time;
 	        	//cout<<endl<<"in iteration: "<<iter<<" for point " <<i<<" : "<<nearest_index<<" , " <<output_index[i]<<" direction: "<< output_index[i] - nearest_index<<endl;
 	        	sum_calcs += num_calcs;
 	        	kd_tree_search_time = -omp_get_wtime();
@@ -725,7 +801,7 @@ exit(0);
 
 
 		}
-
+				//shuffle_array(random_indices2, point_cloud_size);
 	}
 		copyMatToUV(U, uSvd);
 		dsvd(uSvd, 3, 3, sigma, vSvd);
@@ -753,6 +829,7 @@ exit(0);
 		}
 		cout<<endl<<"in iteration "<<iter<<" average number of calcs: "<<((float)sum_calcs / svd_size)<<endl;
 		cout<<endl<<"in iteration "<<iter<<" cost is: "<<cost<<endl;
+		cout<<endl<<"in iteration "<<iter<<" number_of_in_ranges is: "<<(float)number_of_in_ranges/svd_size<<endl;
 		test_sum_calcs += ((float)sum_calcs / svd_size);
 
 		//cout<<endl<<"num_lefts: "<<num_lefts<<" num_rights: "<<num_rights<<endl;
@@ -801,7 +878,7 @@ exit(0);
 	staticPointCloudCopy.clear();
 	delete tree;
 	
-	delete[] uSvd[0];
+	delete[] uSvd[0]; 
 	delete[] uSvd[1];
 	delete[] uSvd[2];
 	delete[] uSvd;
@@ -893,4 +970,58 @@ total_error103797
 
 whole_time: 550.895
 
+
+when shufflig in each iteration: eval size= 50000
+513412
+
+519036
+
+5639.71875
+
+
+150000  not shuffling every time
+in iteration 49 average number of calcs: 6029.03
+in iteration 49 cost is: 1.57389e+06
+
+
+150000, shuffling every time
+in iteration 49 average number of calcs: 6084.35
+in iteration 49 cost is: 1.54776e+06
+
+
+
+49988
+i:149989
+i:149990
+i:149991
+i:149992
+i:149993
+i:149994
+i:149995
+i:149996
+i:149997
+i:149998
+i:149999
+
+in iteration 49 average number of calcs: -4393.93
+
+in iteration 49 cost is: 6.71558e+08
+
+in iteration 49 number_of_in_ranges is: 0.00348
+
+200 10000
+
+50 maxIterations 
+test_sum_calcs: 259609
+
+
+----deleting-----
+
+Alignment Error: 6305.30127 
+
+each_test_time: 7533.38
+total_error6305.3
+
+whole_time: 7533.38
+sh: 1: pause: not found
 */
