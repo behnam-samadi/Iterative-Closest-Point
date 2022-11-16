@@ -990,7 +990,7 @@ bool iter_save_points = true;
 bool main_save_points = false;
 bool random_init_points = false;
 int num_initial_points =200;
-int svd_size = 150;
+int svd_size = 500;
 
 
 vector<vector <double>> init_queries;
@@ -1419,7 +1419,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
     Point* pCopy = new Point(staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
     staticPointCloudCopy.push_back(pCopy);
   }
-      /*cout<<endl<<"staticPointCloudCopy "<< staticPointCloudCopy.size();
+  cout<<endl<<"staticPointCloudCopy "<< staticPointCloudCopy.size();
   cout<<endl<<"dynamicPointCloud "<< dynamicPointCloud.size();
   for (int i =0 ; i < 10; i++)
   {
@@ -1428,7 +1428,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
   }
 
-  exit(0);*/
+  //exit(0);
 
   // create the kd tree
   KdTree* tree = new KdTree(staticPointCloudCopy);
@@ -1457,7 +1457,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
   // initialize the rotation matrix
   clearRotation(rotationMatrix);
 
-  const int maxIterations = 30;
+  const int maxIterations = 50;
   //const int numRandomSamples = dynamicPointCloud.size();
   const int numRandomSamples = svd_size;
   const float eps = 1e-8;
@@ -1473,7 +1473,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
   {
     random_indices2[i] = i;
   }
-  //shuffle_array(random_indices2, point_cloud_size);
+  shuffle_array(random_indices2, point_cloud_size);
   /*
   for (int i = 0; i < svd_size; i++)
     {
@@ -1590,10 +1590,8 @@ exit(0);
   search_range.push_back(0);
   search_range.push_back(1);
   int * past_nearest_indices = new int[point_cloud_size];
-  float sum_ratio = 0;
   for (int iter = 0; iter < maxIterations && abs(cost) > eps; iter++)
   {
-    sum_ratio =0;
     number_of_in_ranges = 0;
     num_lefts = 0;
     num_rights = 0;
@@ -1632,16 +1630,17 @@ exit(0);
     else
     {
       if (iter == maxIterations-1)
-        svd_size = 500;
+        svd_size = 1500;
       for (int i = 0; i < svd_size; i++)
       {
-        if (iter == maxIterations-1)
+        //if (iter == maxIterations-1)
         //cout<<"i:"<<i<<endl;
         //if (iter < 2) cout<<endl<<"processing point: "<<i;
         int randSample = std::rand() % dynamicPointCloud.size();
         // sample the dynamic point cloud
         //p = *dynamicPointCloud[randSample];
         p = *dynamicPointCloud[random_indices2[i]];
+        //cout<<endl<<"point "<<random_indices2[i]<<" selected"<<endl;
         p_projected = (p.pos[0]*basis[0]) + (p.pos[1]*basis[1]) + (p.pos[2]*basis[2]);
         
         vector <double> p_vec(3);
@@ -1688,7 +1687,6 @@ exit(0);
             past_nearest_indices[i] = nearest_index;
             exact_search_time += omp_get_wtime();
             //cout<<endl<<"point: "<<i<<" ratio: "<<binary_search_time / exact_search_time;
-            sum_ratio += (binary_search_time / exact_search_time);
             //cout<<endl<<"in iteration: "<<iter<<" for point " <<i<<" : "<<nearest_index<<" , " <<output_index[i]<<" direction: "<< output_index[i] - nearest_index<<endl;
             sum_calcs += num_calcs;
             kd_tree_search_time = -omp_get_wtime();
@@ -1744,7 +1742,6 @@ exit(0);
 
     }
         //shuffle_array(random_indices2, point_cloud_size);
-    cout<<endl<<"iteration level ratio: "<<sum_ratio/svd_size<<endl;
   }
     copyMatToUV(U, uSvd);
     dsvd(uSvd, 3, 3, sigma, vSvd);
@@ -1842,7 +1839,6 @@ exit(0);
 }
 
 
-
 /*
 
 whole kd-tree search:
@@ -1931,14 +1927,6 @@ in iteration 49 cost is: 1.57389e+06
 150000, shuffling every time
 in iteration 49 average number of calcs: 6084.35
 in iteration 49 cost is: 1.54776e+06
-
-
-
-
-kollan beddone shuffle (svd = 150 and 1500):
-155906
-yek bar shuffle (svd = 150 and 1500):
-426753
 
 
 
@@ -2042,61 +2030,7 @@ public:
     }
 };
 
-void createPoints(std::vector<Point*>& points, const char * file_adress)
-{
-
-
-    
-    FILE *f1 = fopen(file_adress, "rb");
-    fseek(f1, 0L, SEEK_END); // seek to end of file
-    int frame_size = ftell(f1);    //get current file pointer
-    frame_size /= (point_dim * sizeof(float));
-    fseek(f1, 0, SEEK_SET);
-    
-    cout<<endl<<frame_size;
-    
-
-    float * row_data = new float[frame_size* point_dim];
-    cout<<endl<<"---------- reading file ------------"<<endl;
-    fread((row_data), sizeof(float),frame_size*point_dim, f1);
-    for (int i = 0 ; i < frame_size; i++)
-    {
-        if (i%50000 == 0)
-        {
-        cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
-        cout<<endl<<row_data[i*3]<<" , "<<row_data[i*3 + 1]<<" , "<< row_data[i*3+2];
-        }
-        points.push_back(new Point(row_data[i*3], row_data[i*3 + 1], row_data[i*3+2]));   
-    }
-    fclose(f1);
-    //for (int i = 0 ; i < reference->data.size(); i++)
-    //{
-        //
-    //}
-
-/*
-    for (int i = 0 ; i < 30; i++)
-      {
-    cout<<endl<<i<<" : "<<reference.data[i/3][i%3];
-    }
-*/
-/*
-    
-    for (int i = 0 ; i < size; i++)
-    {
-        cout<<endl<<i<<" : "<<row_data[i];
-    }
-
-
-  for (int i = 0 ; i < reference->data.size(); i++)
-  {
-    points.push_back(new Point(reference->data[i][0], reference->data[i][1], reference->data[i][2]));   
-  }
-  */
-}
-
-
-void createPoints_backup(std::vector<Point*>& points, Frame1 * reference)
+void createPoints(std::vector<Point*>& points, Frame1 * reference)
 {
   for (int i = 0 ; i < reference->data.size(); i++)
   {
@@ -2184,12 +2118,12 @@ void expand_point_cloud (vector <Point*>* input)
 
 }
 
-void icpExample(const char * ref_file, const char * query_file)
+void icpExample(Frame1 *reference, Frame1* query)
 {
   
   //create a static box point cloud used as a reference.
   std::vector<Point*> staticPointCloud;
-  createPoints(staticPointCloud, ref_file);
+  createPoints(staticPointCloud, reference);
   //expand_point_cloud(&staticPointCloud);
   //expand_point_cloud(&staticPointCloud);
   //expand_point_cloud(&staticPointCloud);
@@ -2199,13 +2133,13 @@ void icpExample(const char * ref_file, const char * query_file)
   //create a dynamic box point cloud.
   //this point cloud is transformed to match the static point cloud.
   std::vector<Point*> dynamicPointCloud;
-  createPoints(dynamicPointCloud, query_file);
+  createPoints(dynamicPointCloud, query);
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
-  //cout<<endl<<"expansion done"<<endl;
+  cout<<endl<<"expansion done"<<endl;
 
   //apply an artitrary rotation and translation to the dynamic point cloud to misalign the point cloud.
   //float rotation[] = { 1.0f, 0.0f, 0.0f,  0.0f, 0.70710678f, -0.70710678f,  0.0f, 0.70710678f, 0.70710678f };
@@ -2252,69 +2186,15 @@ void icpExample(const char * ref_file, const char * query_file)
   printf("Alignment Error: %0.5f \n", alignmentError);
 }
 
-void save_frame1(Frame1 & input_frame, const char * file_adress)
-{
-    FILE *f = fopen(file_adress, "w");
-    for (int i=0 ; i < input_frame.data.size(); i++)
-    {
-        for (int j =0 ;j <point_dim; j++)
-        {
-            fwrite(&(input_frame.data[i][j]), sizeof(float), 1, f);
-            //fwrite(test_data,              sizeof(float), data_size, f);
-        }
-    }
-    fclose(f);
-}
-
-void temp_show_file(const char * file_adress, int size)
-{
-    float * row_data = new float[size];
-    FILE *f1 = fopen(file_adress, "rb");
-    fseek(f1, 0, SEEK_SET);
-    fread((row_data), sizeof(float), size, f1);
-    fclose(f1);
-    cout<<endl<<"-------------"<<endl;
-    for (int i = 0 ; i < size; i++)
-    {
-        cout<<endl<<i<<" : "<<row_data[i];
-    }
-}
-
 int main()
 {
   //Frame reference("reformed_dataset/PC1.txt");
-  //Frame1 reference("reformed_dataset/0_gr.txt");
-  //Frame1 query("reformed_dataset/1_gr.txt");
-  //cout<<endl<<reference.data.size();
-  
-  //--------------- run once to create a frame--------------:
-  //const char file_adress1[] = "reformed_dataset/0_gr_test.data";
-  /*
+  //Frame reference("reformed_dataset/0_gr.txt");
   Frame1 reference("reformed_dataset/rad_and_black_0.txt");
-  Frame1 query("reformed_dataset/rad_and_black_1.txt");
-  const char file_adress1[] = "reformed_dataset/rad_and_black_0.data";
-  const char file_adress2[] = "reformed_dataset/rad_and_black_1.data";
-  save_frame1(reference, file_adress1);
-  save_frame1(query, file_adress2);
-  exit(0);*/
-  
-  //temp_show_file(file_adress, 30);
-  /*
-  for (int i = 0 ; i < 30; i++)
-  {
-    cout<<endl<<i<<" : "<<reference.data[i/3][i%3];
-  }
-  */
-
-  //exit(0);
-
-  //Frame1 reference("reformed_dataset/rad_and_black_0.txt");
   //Frame reference("reformed_dataset/rad_and_black_0.txt");
-  //Frame1 query("reformed_dataset/rad_and_black_1.txt");
+  Frame1 query("reformed_dataset/rad_and_black_1.txt");
   //query.create_query_data();
-  //Frame1 query("reformed_dataset/1_gr.txt");
-  const char ref_file[]   = "reformed_dataset/rad_and_black_0.data";
-  const char query_file[] = "reformed_dataset/rad_and_black_1.data";
+  //Frame query("reformed_dataset/1_gr.txt");
   //cout<<reference.data.size()<<endl;
   //cout<<query.data.size();
   double whole_time = -omp_get_wtime();
@@ -2324,7 +2204,7 @@ int main()
   {
     cout<<"test number "<<i<<endl;
     each_test_time = -omp_get_wtime();
-    icpExample(ref_file, query_file);
+    icpExample(&reference , &query);
     each_test_time += omp_get_wtime();
     cout<<endl<<"each_test_time: "<<each_test_time<<endl;
   }

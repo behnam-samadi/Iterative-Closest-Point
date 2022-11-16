@@ -173,9 +173,9 @@ void icpExample(Frame *reference, Frame* query)
 	cout<<endl<<"expansion done"<<endl;
 
 	//apply an artitrary rotation and translation to the dynamic point cloud to misalign the point cloud.
-	//float rotation[] = { 1.0f, 0.0f, 0.0f,	0.0f, 0.70710678f, -0.70710678f,	0.0f, 0.70710678f, 0.70710678f };
-	//float translation[] = { -0.75f, 0.5f, -0.5f };
-	//applyAffineTransform(dynamicPointCloud, rotation, translation);
+	float rotation[] = { 1.0f, 0.0f, 0.0f,	0.0f, 0.70710678f, -0.70710678f,	0.0f, 0.70710678f, 0.70710678f };
+	float translation[] = { -0.75f, 0.5f, -0.5f };
+	applyAffineTransform(dynamicPointCloud, rotation, translation);
 
 	/*printf("Static point Cloud: \n");
 	for (int i = 0; i < staticPointCloud.size(); i++)
@@ -223,7 +223,7 @@ int main()
 	//Frame reference("reformed_dataset/0_gr.txt");
 	Frame reference("reformed_dataset/rad_and_black_0.txt");
 	//Frame reference("reformed_dataset/rad_and_black_0.txt");
-	Frame query("reformed_dataset/rad_and_black_1.txt");
+	Frame query("reformed_dataset/rad_and_black_0.txt");
 	//Frame query("reformed_dataset/1_gr.txt");
 	cout<<reference.data.size()<<endl;
 	cout<<query.data.size();

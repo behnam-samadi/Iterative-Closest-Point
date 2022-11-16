@@ -278,6 +278,8 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
 	//cout<<endl<<"init_references: "<<init_references.size();
 	//cout<<endl<<"a new call for "<<nearest_index<<endl;
     double NN_dist = calc_distance(reference->data[nearest_index], query, Euclidean);
+    //cout<<endl<<"NN distance: "<<NN_dist<<endl;
+    //cout<<endl<<"NN distance: "<<NN_dist<<endl;
     
     /*if (dist_to_prev_NN != 0)
     {
@@ -316,6 +318,7 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
     {
     	//cout<<endl<<"in processing "<<nearest_index<<" "<< left_progress<<" , "<<right_progress<<" ----------: "<<next;
         dist = calc_distance(reference->data[next], query, Euclidean);
+        //cout<<endl<<"distance: "<<dist<<endl;
         num_calcs++;
         if ((bucket_size) && (num_calcs>bucket_size))
         {
@@ -325,6 +328,7 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
         {
         	NN_index = next;
         	NN_dist = dist;
+
         }
 
         if  ((abs( reference->data[next][point_dim] - query_projected ) > (basis_size*NN_dist)))
@@ -401,6 +405,7 @@ int exact_knn_projected(const Frame* reference,vector<double>query, double query
     	NN_points[result_index *point_dim+i] = reference->data[NN_index][i];
     	temp_ref[i]= reference->data[NN_index][i];
     }
+
     if (iter_save_points)
     {init_references[result_index] = temp_ref;}
     //cout<<endl<<num_calcs<<endl;
@@ -691,7 +696,7 @@ exit(0);
 		else
 		{
 			if (iter == maxIterations-1)
-				svd_size = 150000;
+				svd_size = 700;
 			for (int i = 0; i < svd_size; i++)
 			{
 				if (iter == maxIterations-1)
