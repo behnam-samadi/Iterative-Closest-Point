@@ -1418,6 +1418,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
   {
     Point* pCopy = new Point(staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
     staticPointCloudCopy.push_back(pCopy);
+    //cout<<endl<<"Point "<<i<<" copied";
   }
       /*cout<<endl<<"staticPointCloudCopy "<< staticPointCloudCopy.size();
   cout<<endl<<"dynamicPointCloud "<< dynamicPointCloud.size();
@@ -2042,58 +2043,9 @@ public:
     }
 };
 
-void createPoints(std::vector<Point*>& points, const char * file_adress)
-{
 
 
-    
-    FILE *f1 = fopen(file_adress, "rb");
-    fseek(f1, 0L, SEEK_END); // seek to end of file
-    int frame_size = ftell(f1);    //get current file pointer
-    frame_size /= (point_dim * sizeof(float));
-    fseek(f1, 0, SEEK_SET);
-    
-    cout<<endl<<frame_size;
-    
 
-    float * row_data = new float[frame_size* point_dim];
-    cout<<endl<<"---------- reading file ------------"<<endl;
-    fread((row_data), sizeof(float),frame_size*point_dim, f1);
-    for (int i = 0 ; i < frame_size; i++)
-    {
-        if (i%50000 == 0)
-        {
-        cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
-        cout<<endl<<row_data[i*3]<<" , "<<row_data[i*3 + 1]<<" , "<< row_data[i*3+2];
-        }
-        points.push_back(new Point(row_data[i*3], row_data[i*3 + 1], row_data[i*3+2]));   
-    }
-    fclose(f1);
-    //for (int i = 0 ; i < reference->data.size(); i++)
-    //{
-        //
-    //}
-
-/*
-    for (int i = 0 ; i < 30; i++)
-      {
-    cout<<endl<<i<<" : "<<reference.data[i/3][i%3];
-    }
-*/
-/*
-    
-    for (int i = 0 ; i < size; i++)
-    {
-        cout<<endl<<i<<" : "<<row_data[i];
-    }
-
-
-  for (int i = 0 ; i < reference->data.size(); i++)
-  {
-    points.push_back(new Point(reference->data[i][0], reference->data[i][1], reference->data[i][2]));   
-  }
-  */
-}
 
 
 void createPoints_backup(std::vector<Point*>& points, Frame1 * reference)
@@ -2184,12 +2136,96 @@ void expand_point_cloud (vector <Point*>* input)
 
 }
 
+
+int read_frame_size(const char * file_adress)
+{
+    cout<<endl<<"reding size of file "<<file_adress;
+    FILE *f1 = fopen(file_adress, "rb");
+    fseek(f1, 0L, SEEK_END); // seek to end of file
+    int frame_size = ftell(f1);    //get current file pointer
+
+    frame_size /= (point_dim * sizeof(float));
+    //vector<vector<float>> result (frame_size , vector<float> (point_dim, 0));
+    fseek(f1, 0, SEEK_SET);
+    return frame_size;
+    
+}
+
+void createPoints(vector<Point*>& PointCloud ,const char * file_adress, int frame_size)
+{  
+    FILE *f1 = fopen(file_adress, "rb");
+    fseek(f1, 0, SEEK_SET);
+    float * row_data = new float[frame_size* point_dim];
+    cout<<endl<<"---------- reading file ------------"<<endl;
+    fread((row_data), sizeof(float),frame_size*point_dim, f1);
+    cout<<"file has been read";
+    cout<<endl<<row_data[(frame_size - 1)*3 + 2];
+
+    for (int i = 0 ; i < frame_size; i++)
+    {
+        
+        
+        if (i % 20000 == 0)
+        {
+            cout<<endl<<i;
+        //cout<<endl<<i;
+        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
+        
+        }
+        //cout<<endl<<row_data[i*3]<<" , "<<row_data[i*3 + 1]<<" , "<< row_data[i*3+2];
+        PointCloud[i] = new Point;
+        
+        //cout<<endl<<"point "<<i<<" dim[0] set to "<<row_data[i*3];
+        PointCloud[i]->pos[0] = row_data[i*3];
+        //cout<<endl<<"point "<<i<<" dim[1] set to "<<row_data[i*3+1];
+        PointCloud[i]->pos[1] = row_data[i*3+1];
+        //cout<<endl<<"point "<<i<<" dim[2] set to "<<row_data[i*3+2];
+        PointCloud[i]->pos[2] = row_data[i*3+2];
+        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
+        
+        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
+        //points.push_back(new Point(row_data[i*3], row_data[i*3 + 1], row_data[i*3+2]));   
+    }
+    fclose(f1);
+    //for (int i = 0 ; i < reference->data.size(); i++)
+    //{
+        //
+    //}
+
+/*
+    for (int i = 0 ; i < 30; i++)
+      {
+    cout<<endl<<i<<" : "<<reference.data[i/3][i%3];
+    }
+*/
+/*
+    
+    for (int i = 0 ; i < size; i++)
+    {
+        cout<<endl<<i<<" : "<<row_data[i];
+    }
+
+
+  for (int i = 0 ; i < reference->data.size(); i++)
+  {
+    points.push_back(new Point(reference->data[i][0], reference->data[i][1], reference->data[i][2]));   
+  }
+  */
+}
+
+
 void icpExample(const char * ref_file, const char * query_file)
 {
   
   //create a static box point cloud used as a reference.
-  std::vector<Point*> staticPointCloud;
-  createPoints(staticPointCloud, ref_file);
+    int reference_size = read_frame_size(ref_file);
+    int query_size = read_frame_size(query_file);
+    vector<Point*> dynamicPointCloud(query_size);
+    vector<Point*> staticPointCloud(reference_size);
+    createPoints(staticPointCloud, ref_file, reference_size);
+    cout<<endl<<"first frame has been read";
+    createPoints(dynamicPointCloud,  query_file, query_size);
+  
   //expand_point_cloud(&staticPointCloud);
   //expand_point_cloud(&staticPointCloud);
   //expand_point_cloud(&staticPointCloud);
@@ -2198,8 +2234,7 @@ void icpExample(const char * ref_file, const char * query_file)
 
   //create a dynamic box point cloud.
   //this point cloud is transformed to match the static point cloud.
-  std::vector<Point*> dynamicPointCloud;
-  createPoints(dynamicPointCloud, query_file);
+  
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
   //expand_point_cloud(&dynamicPointCloud);
