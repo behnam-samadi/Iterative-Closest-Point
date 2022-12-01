@@ -32,7 +32,7 @@
 #define PROJ_DIM 5
 #define True 1
 #define False 0
-
+#define point_dim 3
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -56,6 +56,8 @@
 #include <limits>
 #include <time.h>
 #include <bits/stdc++.h>
+
+
 
 
 
@@ -409,11 +411,19 @@ using namespace std;
 #define SORT_ON_Y 1
 #define SORT_ON_Z 2
 
+
+class float_frame{
+public:
+    int frame_size;
+    float * row_data;
+};
+
 namespace gs
 {
 
   class KdTree;
   class Point;
+
 
 
   class Point
@@ -459,10 +469,10 @@ namespace gs
   class KdTree
   {
   public:
-    KdTree(std::vector<Point*> &pointCloud);
-    KdTree(std::vector<Point*> &pointCloud, int start, int end, int sortOn);
+    KdTree(float_frame pointCloud);
+    KdTree(float_frame pointCloud, int start, int end, int sortOn);
     virtual ~KdTree();
-    void build(std::vector<Point*> &pointCloud, int start, int end, int sortOn);
+    void build(float_frame pointCloud, int start, int end, int sortOn);
     
     bool isLeaf();
     float split();
@@ -482,8 +492,8 @@ namespace gs
     int __end;
 
     void insertionSort(std::vector<Point*> &pointCloud, int start, int end, int sortOn);
-    void mergeSort(std::vector<Point*> &pointCloud, int start, int end);
-    void merge(std::vector<Point*> &pointCloud, int left, int mid, int right);
+    void mergeSort(float_frame pointCloud, int start, int end);
+    void merge(float_frame pointCloud, int left, int mid, int right);
 
     int getNextSortOn(int sortOn);
     Point** tempArray;
@@ -506,14 +516,14 @@ gs::Point::Point(float x, float y, float z)
   this->pos[2] = z;
 }
 
-gs::KdTree::KdTree(std::vector<Point*> &pointCloud)
+gs::KdTree::KdTree(float_frame pointCloud)
 {
-  tempArray = new Point*[pointCloud.size()];
-  build(pointCloud, 0, pointCloud.size(), 0);
+  tempArray = new Point*[pointCloud.frame_size];
+  build(pointCloud, 0, pointCloud.frame_size, 0);
 
   delete tempArray;
 }
-gs::KdTree::KdTree(std::vector<Point*> &pointCloud, int start, int end, int sortOn)
+gs::KdTree::KdTree(float_frame pointCloud, int start, int end, int sortOn)
 {
   build(pointCloud, start, end, sortOn);
 }
@@ -524,7 +534,7 @@ gs::KdTree::~KdTree()
   delete __node;
 }
 
-void gs::KdTree::build(std::vector<Point*> &pointCloud, int start, int end, int sortOn)
+void gs::KdTree::build(float_frame pointCloud, int start, int end, int sortOn)
 {
   __children[0] = nullptr;
   __children[1] = nullptr;
@@ -536,7 +546,8 @@ void gs::KdTree::build(std::vector<Point*> &pointCloud, int start, int end, int 
 
   if (end - start == 1)
   {
-    __node = new Point(pointCloud[start]->pos[0], pointCloud[start]->pos[1], pointCloud[start]->pos[2]);
+    __node = new Point( pointCloud.row_data[start*point_dim] , pointCloud.row_data[start*point_dim+1], pointCloud.row_data[start*point_dim+2]);
+    //__node = new Point(pointCloud[start]->pos[0], pointCloud[start]->pos[1], pointCloud[start]->pos[2]);
     return;
   }
 
@@ -546,7 +557,8 @@ void gs::KdTree::build(std::vector<Point*> &pointCloud, int start, int end, int 
   int numPoints = (end - start);
   int mid = (int)floor((float)numPoints*0.5) + start;
 
-  __node = new Point(pointCloud[mid]->pos[0], pointCloud[mid]->pos[1], pointCloud[mid]->pos[2]);
+  __node = new Point(pointCloud.row_data[mid*point_dim] , pointCloud.row_data[mid*point_dim+1], pointCloud.row_data[mid*point_dim+2]);
+  //__node = new Point(pointCloud[mid]->pos[0], pointCloud[mid]->pos[1], pointCloud[mid]->pos[2]);
 
   int numPointsHigh = (end - mid);
   int numPointsLow = (mid - start);
@@ -684,7 +696,7 @@ void gs::KdTree::search(Point* p, Point* result)
   radiusSearch(p, &radius, result);
 }
 
-void gs::KdTree::mergeSort(std::vector<Point*> &pointCloud, int start, int end)
+void gs::KdTree::mergeSort(float_frame pointCloud, int start, int end)
 {
   int mid;
   if (start > end)
@@ -697,7 +709,7 @@ void gs::KdTree::mergeSort(std::vector<Point*> &pointCloud, int start, int end)
   }
 }
 
-void gs::KdTree::merge(std::vector<Point*> &pointCloud, int left, int mid, int right)
+void gs::KdTree::merge(float_frame pointCloud, int left, int mid, int right)
 {
   int i, leftEnd, numElements, tempPos;
 
@@ -707,15 +719,17 @@ void gs::KdTree::merge(std::vector<Point*> &pointCloud, int left, int mid, int r
 
   while (left < leftEnd && mid <= right)
   {
-    if (pointCloud[left]->pos[__sortOn] <= pointCloud[mid]->pos[__sortOn])
+    //if (pointCloud[left]->pos[__sortOn] <= pointCloud[mid]->pos[__sortOn])
+    if (pointCloud.row_data[left*point_dim + __sortOn] <= pointCloud.row_data[mid*point_dim + __sortOn])
     {
-      tempArray[tempPos] = pointCloud[left];
+      tempArray[tempPos] = new Point(pointCloud.row_data[left*point_dim],  pointCloud.row_data[left*point_dim+1], pointCloud.row_data[left*point_dim+2]);      
       tempPos++;
       left++;
     }
     else
     {
-      tempArray[tempPos] = pointCloud[mid];
+    tempArray[tempPos] = new Point(pointCloud.row_data[mid*point_dim],  pointCloud.row_data[mid*point_dim+1], pointCloud.row_data[mid*point_dim+2]);              
+      //tempArray[tempPos] = pointCloud[mid];
       tempPos++;
       mid++;
     }
@@ -723,20 +737,25 @@ void gs::KdTree::merge(std::vector<Point*> &pointCloud, int left, int mid, int r
 
   while (left < leftEnd)
   {
-    tempArray[tempPos] = pointCloud[left];
+    tempArray[tempPos] = new Point(pointCloud.row_data[left*point_dim], pointCloud.row_data[left*point_dim+1], pointCloud.row_data[left*point_dim+2]);
+    //pointCloud[left];
     left++;
     tempPos++;
   }
   while (mid <= right)
   {
-    tempArray[tempPos] = pointCloud[mid];
+    tempArray[tempPos] = new Point(pointCloud.row_data[mid*point_dim],  pointCloud.row_data[mid*point_dim+1], pointCloud.row_data[mid*point_dim+2]);              
+    //tempArray[tempPos] = pointCloud[mid];
     mid++;
     tempPos++;
   }
 
   for (int i = tempPos - 1; i >= 0; i--)
   {
-    pointCloud[right] = tempArray[i];
+    pointCloud.row_data[right *point_dim] = tempArray[i]->pos[0];
+    pointCloud.row_data[right *point_dim+1] = tempArray[i]->pos[1];
+    pointCloud.row_data[right *point_dim+2] = tempArray[i]->pos[2];
+    //pointCloud[right] = tempArray[i];
     right--;
   }
 }
@@ -778,23 +797,24 @@ namespace gs
   @param std::vector<Point*> dynamicPointCloud : point cloud to be rotated and translated to match 'staticPointCloud'
   @param std::vector<Point*> staticPointCloud : reference point cloud.
   */
-  void icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &staticPointCloud);
+  void icp(float_frame dynamicPointCloud , float_frame staticPointCloud);
 
-  inline void computeCloudMean(std::vector<Point*> &cloud, gs::Point* mean)
+  inline void computeCloudMean(float_frame cloud, gs::Point* mean)
   {
     mean->pos[0] = 0.0;
     mean->pos[1] = 0.0;
     mean->pos[2] = 0.0;
-    for (int i = 0; i < cloud.size(); i++)
+    for (int i = 0; i < cloud.frame_size; i++)
     {
       for (int j = 0; j < 3; j++)
       {
-        mean->pos[j] += cloud[i]->pos[j];
+        //mean->pos[j] += cloud[i]->pos[j];
+        mean->pos[j] += cloud.row_data[i*point_dim+j];
       }
     }
-    mean->pos[0] = mean->pos[0] / (float)cloud.size();
-    mean->pos[1] = mean->pos[1] / (float)cloud.size();
-    mean->pos[2] = mean->pos[2] / (float)cloud.size();
+    mean->pos[0] = mean->pos[0] / (float)(cloud.frame_size);
+    mean->pos[1] = mean->pos[1] / (float)(cloud.frame_size);
+    mean->pos[2] = mean->pos[2] / (float)(cloud.frame_size);
   }
 
   inline void clearTranslation(float* translation)
@@ -839,13 +859,18 @@ namespace gs
     result->pos[0] = p->pos[0] * rotationMatrix[0] + p->pos[1] * rotationMatrix[1] + p->pos[2] * rotationMatrix[2];
     result->pos[1] = p->pos[0] * rotationMatrix[3] + p->pos[1] * rotationMatrix[4] + p->pos[2] * rotationMatrix[5];
     result->pos[2] = p->pos[0] * rotationMatrix[6] + p->pos[1] * rotationMatrix[7] + p->pos[2] * rotationMatrix[8];
+    //to do:
+    //delete p;
   }
 
-  inline void translate(gs::Point* p, float* translationVector, gs::Point* result)
+  inline void translate(gs::Point* p, float* translationVector, float_frame dynamicPointCloud, int i )
   {
-    result->pos[0] = p->pos[0] + translationVector[0];
-    result->pos[1] = p->pos[1] + translationVector[1];
-    result->pos[2] = p->pos[2] + translationVector[2];
+    dynamicPointCloud.row_data[i*point_dim] = p->pos[0] + translationVector[0];
+    dynamicPointCloud.row_data[i*point_dim+1] = p->pos[1] + translationVector[1];
+    dynamicPointCloud.row_data[i*point_dim+2] = p->pos[2] + translationVector[2];
+    //result->pos[0] = p->pos[0] + translationVector[0];
+    //result->pos[1] = p->pos[1] + translationVector[1];
+    //result->pos[2] = p->pos[2] + translationVector[2];
   }
 
   inline void outerProduct(gs::Point* a, gs::Point* b, float* mat)
@@ -953,7 +978,7 @@ namespace gs
 
 
 int index_to_ckeck = 1237;
-#define point_dim 3
+
 using namespace std;
 using namespace gs;
 int num_calcs;
@@ -1059,6 +1084,8 @@ double calc_distance (double *v1, vector<double>v2, dist_metric type)
         }
 }
 
+
+
 class Frame{
     //later: change to private
 public:
@@ -1094,15 +1121,19 @@ public:
               data[i] = (temp+i*(point_dim+1));
           }
     }
-    Frame(vector<Point*>* point_data)
+    Frame(float_frame point_data)
     {
-      num_points = point_data->size();
-      row_data = vector<vector<double>> (point_data->size() , vector<double> (point_dim, 0));
-      for (int i = 0 ; i <point_data->size();i++)
+      num_points = point_data.frame_size;
+      row_data = vector<vector<double>> (point_data.frame_size , vector<double> (point_dim, 0));
+      for (int i = 0 ; i <point_data.frame_size;i++)
       {
+        if (i%1000 == 0)
+        {
+            cout<<endl<<"creating point " <<i<<"in frame";
+        }
         for (int j = 0 ; j < point_dim; j++)
         {
-          row_data[i][j] = (*point_data)[i]->pos[j];
+          row_data[i][j] = point_data.row_data[i*point_dim+j];
         }
       }
       allocate_data();
@@ -1397,7 +1428,7 @@ if (left_arrow>0)
 
 
 
-void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &staticPointCloud)
+void gs::icp(float_frame dynamicPointCloud , float_frame staticPointCloud)
 {
   
 
@@ -1408,18 +1439,22 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
   float translation[3];
   int number_of_in_ranges = 0;
 
-  std::vector<Point*> staticPointCloudCopy;
+  //to do: make copy method in the float_frame class
+  float_frame staticPointCloudCopy;
+  staticPointCloudCopy.frame_size = staticPointCloud.frame_size;
+  staticPointCloudCopy.row_data = new float[staticPointCloud.frame_size * point_dim];
+  for (int i =0 ;i < (staticPointCloud.frame_size) * point_dim; i++)
+  {
+    if (i %10000==0 || i>2100000) cout<<endl<<"copying point "<<i<<" from "<<(staticPointCloud.frame_size) * point_dim;
+    staticPointCloudCopy.row_data[i] = staticPointCloud.row_data[i];
+  }
+  cout<<endl<<"Point Cloud Copied";
   
   gs::Point dynamicMid(0.0,0.0,0.0);
   gs::Point staticMid(0.0,0.0,0.0);
 
   // copy the static point cloud
-  for (int i = 0; i < staticPointCloud.size(); i++)
-  {
-    Point* pCopy = new Point(staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
-    staticPointCloudCopy.push_back(pCopy);
-    //cout<<endl<<"Point "<<i<<" copied";
-  }
+  
       /*cout<<endl<<"staticPointCloudCopy "<< staticPointCloudCopy.size();
   cout<<endl<<"dynamicPointCloud "<< dynamicPointCloud.size();
   for (int i =0 ; i < 10; i++)
@@ -1433,7 +1468,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
 
   // create the kd tree
   KdTree* tree = new KdTree(staticPointCloudCopy);
-  Frame reference(&staticPointCloudCopy);
+  Frame reference(staticPointCloudCopy);
   double create_reference_data_time = -omp_get_wtime();
   reference.create_reference_data();
   create_reference_data_time += omp_get_wtime();
@@ -1447,7 +1482,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
       //cout<<endl<<"i: "<<i<<" j: "<<j<<" "<<reference.data[i][j]<<endl;
     }
   }
-  size_t numDynamicPoints = dynamicPointCloud.size();
+  size_t numDynamicPoints = dynamicPointCloud.frame_size;
 
   computeCloudMean(staticPointCloud, &staticMid);
   computeCloudMean(dynamicPointCloud, &dynamicMid);
@@ -1465,7 +1500,7 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
   gs::Point p;
   gs::Point x;
   int j1 = 0;
-  int point_cloud_size = dynamicPointCloud.size();
+  int point_cloud_size = dynamicPointCloud.frame_size;
 
   //vector<int> random_indices1;
   int randSample;
@@ -1501,8 +1536,8 @@ void gs::icp(std::vector<Point*> &dynamicPointCloud, std::vector<Point*> &static
     //vector<int> init_indices(num_initial_points*2) [2];
     for (int i = 0; i < num_initial_points; i++)
     {
-      randSample1 = std::rand() % dynamicPointCloud.size();
-      randSample2 = std::rand() % dynamicPointCloud.size();
+      randSample1 = std::rand() % dynamicPointCloud.frame_size;
+      randSample2 = std::rand() % dynamicPointCloud.frame_size;
       for (int j = 0 ; j < point_dim; j++)
       {
         init_first_pair[i][j] = reference.data[randSample1][j];
@@ -1572,9 +1607,9 @@ exit(0);
   double sum_proposed_time = 0;
   //vector<double> NN_projected  (dynamicPointCloud.size());
   //to do : free this space
-  double * NN_projected =  new double[dynamicPointCloud.size()];
+  double * NN_projected =  new double[dynamicPointCloud.frame_size];
   //double NN_projected[39000];
-  double * NN_points = new double [dynamicPointCloud.size() * point_dim];
+  double * NN_points = new double [dynamicPointCloud.frame_size * point_dim];
   //double NN_points[39000*3];
   //double * displacement = new double[dynamicPointCloud.size()];
   
@@ -1614,9 +1649,12 @@ exit(0);
     {
       for (int i = 0; i < numRandomSamples; i++)
       {
-        int randSample = std::rand() % dynamicPointCloud.size();
+        int randSample = std::rand() % dynamicPointCloud.frame_size;
         // sample the dynamic point cloud
-        p = *dynamicPointCloud[randSample];
+        p.pos[0] = dynamicPointCloud.row_data[randSample * point_dim];
+        p.pos[0] = dynamicPointCloud.row_data[randSample * point_dim+1];
+        p.pos[0] = dynamicPointCloud.row_data[randSample * point_dim+2];
+        //p = dynamicPointCloud.row_data[randSample+]
 
         // get the closest point in the static point cloud
         kd_tree_search_time = -omp_get_wtime();
@@ -1636,13 +1674,16 @@ exit(0);
         svd_size = 500;
       for (int i = 0; i < svd_size; i++)
       {
-        if (iter == maxIterations-1)
+        //if (iter == maxIterations-1)
         //cout<<"i:"<<i<<endl;
         //if (iter < 2) cout<<endl<<"processing point: "<<i;
-        int randSample = std::rand() % dynamicPointCloud.size();
+        int randSample = std::rand() % dynamicPointCloud.frame_size;
         // sample the dynamic point cloud
         //p = *dynamicPointCloud[randSample];
-        p = *dynamicPointCloud[random_indices2[i]];
+        p.pos[0] = dynamicPointCloud.row_data[random_indices2[i]*point_dim];
+        p.pos[1] = dynamicPointCloud.row_data[random_indices2[i]*point_dim+1];
+        p.pos[2] = dynamicPointCloud.row_data[random_indices2[i]*point_dim+2];
+        //p = *dynamicPointCloud[random_indices2[i]];
         p_projected = (p.pos[0]*basis[0]) + (p.pos[1]*basis[1]) + (p.pos[2]*basis[2]);
         
         vector <double> p_vec(3);
@@ -1763,11 +1804,12 @@ exit(0);
     //update the point cloud
     for (int i = 0; i < point_cloud_size; i++)
     {
-      x_prev = dynamicPointCloud[i]->pos[0];
-      y_prev = dynamicPointCloud[i]->pos[1];
-      z_prev = dynamicPointCloud[i]->pos[2];
-      rotate(dynamicPointCloud[i], rotationMatrix, &p);
-      translate(&p, translation, dynamicPointCloud[i]);     
+      x_prev = dynamicPointCloud.row_data[i*point_dim];
+      y_prev = dynamicPointCloud.row_data[i*point_dim+1];
+      z_prev = dynamicPointCloud.row_data[i*point_dim+2];
+
+      rotate(new Point(dynamicPointCloud.row_data[i*point_dim], dynamicPointCloud.row_data[i*point_dim+1], dynamicPointCloud.row_data[i*point_dim+2]), rotationMatrix, &p);
+      translate(&p, translation, dynamicPointCloud, i);     
       //dist_to_prev_NN[i] = sqrt(pow(NN_points[(i*point_dim)] - dynamicPointCloud[i]->pos[0],2) + pow(NN_points[(i*point_dim+1)]-dynamicPointCloud[i]->pos[1],2) +pow(NN_points[i*point_dim+2] - dynamicPointCloud[i]->pos[2],2));
       //displacement[i] = sqrt(pow(x_prev - dynamicPointCloud[i]->pos[0],2) + pow(y_prev-dynamicPointCloud[i]->pos[1],2) +pow(z_prev - dynamicPointCloud[i]->pos[2],2));
     }
@@ -1819,7 +1861,9 @@ exit(0);
   cout<<endl<<num_iterations<<" maxIterations ";
   
 
-  staticPointCloudCopy.clear();
+
+  //staticPointCloudCopy.clear();
+  delete[] staticPointCloudCopy.row_data;
   delete tree;
   
   delete[] uSvd[0]; 
@@ -2151,66 +2195,18 @@ int read_frame_size(const char * file_adress)
     
 }
 
-void createPoints(vector<Point*>& PointCloud ,const char * file_adress, int frame_size)
+float_frame createPoints(const char * file_adress, int frame_size)
 {  
     FILE *f1 = fopen(file_adress, "rb");
     fseek(f1, 0, SEEK_SET);
     float * row_data = new float[frame_size* point_dim];
     cout<<endl<<"---------- reading file ------------"<<endl;
     fread((row_data), sizeof(float),frame_size*point_dim, f1);
-    cout<<"file has been read";
-    cout<<endl<<row_data[(frame_size - 1)*3 + 2];
-
-    for (int i = 0 ; i < frame_size; i++)
-    {
-        
-        
-        if (i % 20000 == 0)
-        {
-            cout<<endl<<i;
-        //cout<<endl<<i;
-        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
-        
-        }
-        //cout<<endl<<row_data[i*3]<<" , "<<row_data[i*3 + 1]<<" , "<< row_data[i*3+2];
-        PointCloud[i] = new Point;
-        
-        //cout<<endl<<"point "<<i<<" dim[0] set to "<<row_data[i*3];
-        PointCloud[i]->pos[0] = row_data[i*3];
-        //cout<<endl<<"point "<<i<<" dim[1] set to "<<row_data[i*3+1];
-        PointCloud[i]->pos[1] = row_data[i*3+1];
-        //cout<<endl<<"point "<<i<<" dim[2] set to "<<row_data[i*3+2];
-        PointCloud[i]->pos[2] = row_data[i*3+2];
-        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
-        
-        //cout<<endl<<"point "<<i<<"from "<<frame_size<<" has been read";
-        //points.push_back(new Point(row_data[i*3], row_data[i*3 + 1], row_data[i*3+2]));   
-    }
     fclose(f1);
-    //for (int i = 0 ; i < reference->data.size(); i++)
-    //{
-        //
-    //}
-
-/*
-    for (int i = 0 ; i < 30; i++)
-      {
-    cout<<endl<<i<<" : "<<reference.data[i/3][i%3];
-    }
-*/
-/*
-    
-    for (int i = 0 ; i < size; i++)
-    {
-        cout<<endl<<i<<" : "<<row_data[i];
-    }
-
-
-  for (int i = 0 ; i < reference->data.size(); i++)
-  {
-    points.push_back(new Point(reference->data[i][0], reference->data[i][1], reference->data[i][2]));   
-  }
-  */
+    float_frame result;
+    result.frame_size = frame_size;
+    result.row_data = row_data;
+    return result;
 }
 
 
@@ -2220,59 +2216,20 @@ void icpExample(const char * ref_file, const char * query_file)
   //create a static box point cloud used as a reference.
     int reference_size = read_frame_size(ref_file);
     int query_size = read_frame_size(query_file);
-    vector<Point*> dynamicPointCloud(query_size);
-    vector<Point*> staticPointCloud(reference_size);
-    createPoints(staticPointCloud, ref_file, reference_size);
+    cout<<endl<<"file sizes has been read";
+    float_frame dynamicPointCloud;
+    float_frame staticPointCloud;
+    staticPointCloud =  createPoints(ref_file, reference_size);
     cout<<endl<<"first frame has been read";
-    createPoints(dynamicPointCloud,  query_file, query_size);
-  
-  //expand_point_cloud(&staticPointCloud);
-  //expand_point_cloud(&staticPointCloud);
-  //expand_point_cloud(&staticPointCloud);
-  //expand_point_cloud(&staticPointCloud);
-  //expand_point_cloud(&staticPointCloud);
-
-  //create a dynamic box point cloud.
-  //this point cloud is transformed to match the static point cloud.
-  
-  //expand_point_cloud(&dynamicPointCloud);
-  //expand_point_cloud(&dynamicPointCloud);
-  //expand_point_cloud(&dynamicPointCloud);
-  //expand_point_cloud(&dynamicPointCloud);
-  //expand_point_cloud(&dynamicPointCloud);
-  //cout<<endl<<"expansion done"<<endl;
+    dynamicPointCloud = createPoints(query_file, query_size);
 
   //apply an artitrary rotation and translation to the dynamic point cloud to misalign the point cloud.
   //float rotation[] = { 1.0f, 0.0f, 0.0f,  0.0f, 0.70710678f, -0.70710678f,  0.0f, 0.70710678f, 0.70710678f };
   //float translation[] = { -0.75f, 0.5f, -0.5f };
   //applyAffineTransform(dynamicPointCloud, rotation, translation);
-
-  /*printf("Static point Cloud: \n");
-  for (int i = 0; i < staticPointCloud.size(); i++)
-  {
-    printf("%0.2f, %0.2f, %0.2f \n", staticPointCloud[i]->pos[0], staticPointCloud[i]->pos[1], staticPointCloud[i]->pos[2]);
-  }
-  printf("\n");*/
-
-  /*printf("Dynamic point Cloud: \n");
-  for (int i = 0; i < dynamicPointCloud.size(); i++)
-  {
-    printf("%0.2f, %0.2f, %0.2f \n", dynamicPointCloud[i]->pos[0], dynamicPointCloud[i]->pos[1], dynamicPointCloud[i]->pos[2]);
-  }
-  printf("\n");*/
-
-  //use iterative closest point to transform the dynamic point cloud to best align the static point cloud.
-
   icp(dynamicPointCloud, staticPointCloud);
 
-  /*printf("Dynamic point Cloud Transformed: \n");
-  for (int i = 0; i < dynamicPointCloud.size(); i++)
-  {
-    printf("%0.2f, %0.2f, %0.2f \n", dynamicPointCloud[i]->pos[0], dynamicPointCloud[i]->pos[1], dynamicPointCloud[i]->pos[2]);
-  }
-  printf("\n");*/
-
-  float alignmentError = 0.0f;
+  /*float alignmentError = 0.0f;
   for (int i = 0; i < min(dynamicPointCloud.size(), staticPointCloud.size()); i++)
   {
     //cout<<endl<<"for point "<<i<<" it is ok "<<endl;
@@ -2285,6 +2242,7 @@ void icpExample(const char * ref_file, const char * query_file)
   total_error += alignmentError;
 
   printf("Alignment Error: %0.5f \n", alignmentError);
+  */
 }
 
 void save_frame1(Frame1 & input_frame, const char * file_adress)
@@ -2325,10 +2283,10 @@ int main()
   //--------------- run once to create a frame--------------:
   //const char file_adress1[] = "reformed_dataset/0_gr_test.data";
   /*
-  Frame1 reference("reformed_dataset/rad_and_black_0.txt");
-  Frame1 query("reformed_dataset/rad_and_black_1.txt");
-  const char file_adress1[] = "reformed_dataset/rad_and_black_0.data";
-  const char file_adress2[] = "reformed_dataset/rad_and_black_1.data";
+  Frame1 reference("reformed_dataset/0_gr.txt");
+  Frame1 query("reformed_dataset/1_gr.txt");
+  const char file_adress1[] = "reformed_dataset/0_gr.data";
+  const char file_adress2[] = "reformed_dataset/1_gr.data";
   save_frame1(reference, file_adress1);
   save_frame1(query, file_adress2);
   exit(0);*/
@@ -2348,8 +2306,10 @@ int main()
   //Frame1 query("reformed_dataset/rad_and_black_1.txt");
   //query.create_query_data();
   //Frame1 query("reformed_dataset/1_gr.txt");
-  const char ref_file[]   = "reformed_dataset/rad_and_black_0.data";
-  const char query_file[] = "reformed_dataset/rad_and_black_1.data";
+  //const char ref_file[]   = "reformed_dataset/rad_and_black_0.data";
+  //const char query_file[] = "reformed_dataset/rad_and_black_1.data";
+  const char ref_file[]   = "reformed_dataset/0_gr.data";
+  const char query_file[] = "reformed_dataset/1_gr.data";
   //cout<<reference.data.size()<<endl;
   //cout<<query.data.size();
   double whole_time = -omp_get_wtime();
